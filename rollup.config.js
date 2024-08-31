@@ -1,25 +1,31 @@
 import nodeResolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 
-export default [{
-	input: 'index.js',
-	plugins: [nodeResolve()],
+const external = ['@shgysk8zer0/polyfills'];
+const modules = [
+	'consts',
+	'env',
+	'firebase',
+	'jwk-utils',
+	'jwk',
+	'jwt',
+	'origin-tokens',
+	'utils',
+];
+const plugins = [nodeResolve()];
+const outputPlugins = [terser()];
+
+export default modules.map(module => ({
+	input: `${module}.js`,
+	external,
+	plugins,
 	output: [{
-		file: 'index.cjs',
+		file: `${module}.cjs`,
 		format: 'cjs',
+		exports: 'named',
 	}, {
-		file: 'index.min.js',
-		format: 'iife',
-		plugins: [terser()],
-		sourcemap: true,
-	}, {
-		file: 'index.mjs',
-		format: 'module',
-	}],
-}, {
-	input: 'consts.js',
-	output: {
-		file: 'consts.cjs',
-		format: 'cjs',
-	}
-}];
+		file: `${module}.min.js`,
+		format: 'esm',
+		plugins: outputPlugins,
+	}]
+}));
