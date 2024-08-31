@@ -1,4 +1,4 @@
-export const AUTH = 'Authentication';
+export const AUTH = 'Authorization';
 export const ALPHABET = 'base64url';
 export const MIME_TYPE = 'application/jwk+json';
 export const DEFAULT_ALGO = 'ES256';
