@@ -146,16 +146,3 @@ export async function fetchJWK(url, {
 		return null;
 	}
 }
-
-
-// const { publicKey, privateKey } = await generateJWKPair();
-// const file = await createJWKFile(publicKey);
-// const blob = URL.createObjectURL(file);
-// const fetched = await fetchJWK(blob);
-
-// const token = await createOriginAuthToken('https://example.com', privateKey, {
-// 	// issued: new Date('2024-08-30T14:00'),
-// 	// ttl: 20 * 60,
-// });
-// const result = await verifyJWT(token, fetched);
-// console.log(result);

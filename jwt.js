@@ -10,18 +10,22 @@ import { findKeyAlgo, getKeyId } from './utils.js';
  * @throws {Error} - If there's an error generating the JWT.
  */
 export async function createJWT(payload, privateKey) {
-	const encoder = new TextEncoder();
 	const [name, algo] = findKeyAlgo(privateKey);
 
-	const encodedHeader = encoder.encode(JSON.stringify({ alg: name, kid: await getKeyId(privateKey), typ: 'JWT' })).toBase64({ alphabet });
-	const encodedPayload = encoder.encode(JSON.stringify(payload)).toBase64({ alphabet });
-	const signature = await crypto.subtle.sign(
-		{ ...algo, ...privateKey.algorithm },
-		privateKey,
-		encoder.encode(`${encodedHeader}.${encodedPayload}`)
-	);
+	if (typeof name === 'string') {
+		const encoder = new TextEncoder();
+		const encodedHeader = encoder.encode(JSON.stringify({ alg: name, kid: await getKeyId(privateKey), typ: 'JWT' })).toBase64({ alphabet });
+		const encodedPayload = encoder.encode(JSON.stringify(payload)).toBase64({ alphabet });
+		const signature = await crypto.subtle.sign(
+			{ ...algo, ...privateKey.algorithm },
+			privateKey,
+			encoder.encode(`${encodedHeader}.${encodedPayload}`)
+		);
 
-	return `${encodedHeader}.${encodedPayload}.${new Uint8Array(signature).toBase64({ alphabet })}`;
+		return `${encodedHeader}.${encodedPayload}.${new Uint8Array(signature).toBase64({ alphabet })}`;
+	} else {
+		return null;
+	}
 }
 
 
@@ -33,15 +37,24 @@ export async function createJWT(payload, privateKey) {
  * @throws {Error} - If the JWT is malformed or cannot be decoded.
  */
 export function decodeToken(jwt) {
-	const [header, payload, signature] = jwt.split('.');
-	const decoder = new TextDecoder('utf-8');
+	if (typeof jwt !== 'string') {
+		throw new TypeError('JWT is not a string.');
+	} else {
+		const [header, payload, signature] = jwt.split('.');
 
-	return {
-		header: JSON.parse(decoder.decode(Uint8Array.fromBase64(header, { alphabet }))),
-		payload: JSON.parse(decoder.decode(Uint8Array.fromBase64(payload, { alphabet }))),
-		signature: Uint8Array.fromBase64(signature, { alphabet }),
-		data: new TextEncoder().encode(`${header}.${payload}`),
-	};
+		if (typeof header === 'string' && typeof payload === 'string' && typeof signature === 'string') {
+			const decoder = new TextDecoder('utf-8');
+
+			return {
+				header: JSON.parse(decoder.decode(Uint8Array.fromBase64(header, { alphabet }))),
+				payload: JSON.parse(decoder.decode(Uint8Array.fromBase64(payload, { alphabet }))),
+				signature: Uint8Array.fromBase64(signature, { alphabet }),
+				data: new TextEncoder().encode(`${header}.${payload}`),
+			};
+		} else {
+			return null;
+		}
+	}
 }
 
 /**
@@ -52,22 +65,18 @@ export function decodeToken(jwt) {
  * @throws {Error} - If the JWT is malformed or cannot be decoded.
  */
 export async function verifyJWT(jwt, publicKey) {
-	const { header, payload, signature, data } = decodeToken(jwt);
-	const now = Math.round(Date.now() / 1000);
+	const { header, payload, signature, data } = decodeToken(jwt) ?? {};
 
-	if (! await crypto.subtle.verify(
+	if (typeof header === 'undefined') {
+		return null;
+	} else if (! (typeof header.alg === 'string' && header.alg in ALGOS)) {
+		return null;
+	} else if (! await crypto.subtle.verify(
 		ALGOS[header.alg],
 		publicKey,
 		signature,
 		data,
 	).catch(() => false)) {
-		console.warn('Bad signature.');
-		return null;
-	} else if (
-		(typeof payload.nbf === 'number' && payload.nbf > now)
-		|| (typeof payload.exp === 'number' && payload.exp < now)
-	) {
-		console.warn('Bad times.');
 		return null;
 	} else {
 		return payload;

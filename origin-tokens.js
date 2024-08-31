@@ -79,17 +79,16 @@ export async function authenticateRequest(req, privateKey, {
 export async function decodeOriginToken(token, origin, publicKey) {
 	const payload = await verifyJWT(token, publicKey);
 
-	if (typeof origin !== 'string' || origin.length === 0) {
-		throw new TypeError('Origin is required to be a non-empty string.');
-	} else if (typeof payload !== 'object' || payload === null) {
-		throw new TypeError('Invalid payload in token. Wrong type.');
+	if (typeof payload !== 'object' || payload === null) {
+		return null;
+	} else if (typeof origin !== 'string' || origin.length === 0) {
+		return null;
 	} else if (! ['iss', 'iat', 'exp', 'nbf'].every(key => key in payload)) {
-		console.log(Object.keys(payload));
-		throw new TypeError('Invalid payload of token. Missing properties.');
+		return null;
 	} else if (typeof payload.iss !== 'string' || ! URL.parse(payload.iss)?.origin === payload.origin) {
-		throw new TypeError(`Invalid origin/issuer for token - ${payload.iss}.`);
+		return null;
 	} else if (payload.iss !== origin) {
-		throw new TypeError(`Origin mismatch - Expected ${payload.iss} but got ${origin}.`);
+		null;
 	} else {
 		return payload;
 	}
