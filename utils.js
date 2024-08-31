@@ -24,6 +24,15 @@ export async function getKeyId(key) {
  * @returns {Array<string, Object>} An array containing the algorithm name and configuration, or `[null, null]` if no match is found.
  */
 export function findKeyAlgo(key) {
+	if (key instanceof CryptoKey) {
+		if (key.algorithm.name === 'ECDSA') {
+			return Object.entries(ALGOS).find(([, { name, namedCurve }]) => name === 'ECDSA' && namedCurve === key.algorithm.namedCurve) ?? [null, null];
+		} else if (key.algorithm.name === 'RSASSA-PKCS1-v1_5') {
+			return Object.entries(ALGOS).find(([, { name, hash }]) => name === 'RSASSA-PKCS1-v1_5' && hash === key.algorithm.hash.name) ?? [null, null];
+		} else {
+			return [null, null];
+		}
+	}
 	if (typeof key?.algorithm?.name === 'string') {
 		return Object.entries(ALGOS).find(([, algo]) => algo.name === key.algorithm.name) ?? [null, null];
 	} else if (typeof key?.crv === 'string') {

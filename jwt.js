@@ -14,15 +14,15 @@ export async function createJWT(payload, privateKey) {
 
 	if (typeof name === 'string') {
 		const encoder = new TextEncoder();
-		const encodedHeader = encoder.encode(JSON.stringify({ alg: name, kid: await getKeyId(privateKey), typ: 'JWT' })).toBase64({ alphabet });
-		const encodedPayload = encoder.encode(JSON.stringify(payload)).toBase64({ alphabet });
+		const encodedHeader = encoder.encode(JSON.stringify({ alg: name, kid: await getKeyId(privateKey), typ: 'JWT' })).toBase64({ alphabet }).replaceAll('=', '');
+		const encodedPayload = encoder.encode(JSON.stringify(payload)).toBase64({ alphabet }).replaceAll('=', '');
 		const signature = await crypto.subtle.sign(
 			{ ...algo, ...privateKey.algorithm },
 			privateKey,
 			encoder.encode(`${encodedHeader}.${encodedPayload}`)
 		);
 
-		return `${encodedHeader}.${encodedPayload}.${new Uint8Array(signature).toBase64({ alphabet })}`;
+		return `${encodedHeader}.${encodedPayload}.${new Uint8Array(signature).toBase64({ alphabet }).replaceAll('=', '')}`;
 	} else {
 		return null;
 	}
@@ -40,7 +40,7 @@ export function decodeToken(jwt) {
 	if (typeof jwt !== 'string') {
 		throw new TypeError('JWT is not a string.');
 	} else {
-		const [header, payload, signature] = jwt.split('.');
+		const [header, payload, signature] = jwt.trim().split('.');
 
 		if (typeof header === 'string' && typeof payload === 'string' && typeof signature === 'string') {
 			const decoder = new TextDecoder('utf-8');
@@ -69,7 +69,7 @@ export async function verifyJWT(jwt, publicKey) {
 
 	if (typeof header === 'undefined') {
 		return null;
-	} else if (! (typeof header.alg === 'string' && header.alg in ALGOS)) {
+	} else if (! (header.typ === 'JWT' && typeof header.alg === 'string' && header.alg in ALGOS)) {
 		return null;
 	} else if (! await crypto.subtle.verify(
 		ALGOS[header.alg],

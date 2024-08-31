@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.3] - 2024-08-31
+
+### Added
+- Added support for RS384, RS512, ES384, and ES512 algorithms
+
+### Fixed
+- Fix incorrect base64 encoding
+
 ## [v1.0.2] - 2024-08-31
 
 ### Fixed
