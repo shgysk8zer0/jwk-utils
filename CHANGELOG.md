@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.2] - 2024-08-31
+
+### Fixed
+- Fix typo in "Authorization" constant
+
 ## [v1.0.1] - 2024-08-31
 
 ### Fixed
