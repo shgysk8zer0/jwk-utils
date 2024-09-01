@@ -40,15 +40,32 @@ and [JWT](https://jwt.io/) support via the [`crypto` API](https://developer.mozi
 
 ### Supported Algorithms
 - RS256
+- RS384
+- RS512
 - ES256
+- ES384
+- ES512
+- HS256
+- HS384
+- HS512
+- PS256
+- PS384
+- PS512
+- EdDSA
+
+> [!Note]
+> EdDSA is currently experimental in Node.js and is only suported in Safari. See [Browser Compatibility on MDN](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/sign#browser_compatibility).
+
+## Not Supported
+- ES256K
 
 ### Example
 
 ```js
-import { generateJWKPair, createJWT, verifyJWT } from '@shgysk8zer0/jwt-jwk';
+import { generateJWK, createJWT, verifyJWT } from '@shgysk8zer0/jwt-jwk';
 
 // Generate a JWK pair
-const { publicKey, privateKey } = await generateJWKPair();
+const { publicKey, privateKey } = await generateJWK();
 
 // Create a JWT
 const token = await createJWT({ data: 'some payload' }, privateKey);
@@ -59,5 +76,5 @@ const verifiedPayload = await verifyJWT(token, publicKey);
 
 ## Limitations
 
-Due to using JWKs and public/private keys, this currently does not support HS256
-or any symmetric keys.
+Due to using JWKs and public/private keys, this currently does not support algorithms
+not suppported by `crypto.subtle`.

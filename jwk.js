@@ -11,6 +11,18 @@ import { findKeyAlgo } from './utils.js';
  * @throws {Error} - If there's an error generating the JWK pair.
  */
 export async function generateJWKPair(algo = DEFAULT_ALGO) {
+	console.warn('`generateJWKPair` is deprecated. Please use `generateJWK` instead.');
+	return await generateJWK(algo);
+}
+
+/**
+ * Generates a new JSON Web Key (JWK) pair or secret key (single) with the specified algorithm.
+ *
+ * @param {string} algo - The algorithm to use for the JWK pair. Defaults to `"ES256"`.
+ * @returns {Promise<CryptoKeyPair | CryptoKey>} A promise that resolves to the generated JWK pair.
+ * @throws {Error} - If there's an error generating the JWK pair.
+ */
+export async function generateJWK(algo = DEFAULT_ALGO) {
 	return await crypto.subtle.generateKey(
 		ALGOS[algo],
 		true,
@@ -44,7 +56,7 @@ export async function createJWKFile(key, name) {
 	if (typeof name === 'string' && name.length !== 0) {
 		return new File([JSON.stringify(extracted)], name, { type: MIME_TYPE });
 	} else {
-		return new File([JSON.stringify(extracted)], `${key.type}.jwk`, { type: MIME_TYPE});
+		return new File([JSON.stringify(extracted)], `${key.algorithm.name}-${key.type}.jwk`, { type: MIME_TYPE});
 	}
 }
 

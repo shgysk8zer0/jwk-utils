@@ -1,4 +1,4 @@
-import { ALGOS } from './consts.js';
+import { ALGOS, EdDSA } from './consts.js';
 /**
  * Calculates the key ID (kid) for a given JSON Web Key (JWK).
  *
@@ -25,16 +25,25 @@ export async function getKeyId(key) {
  */
 export function findKeyAlgo(key) {
 	if (key instanceof CryptoKey) {
-		if (key.algorithm.name === 'ECDSA') {
-			return Object.entries(ALGOS).find(([, { name, namedCurve }]) => name === 'ECDSA' && namedCurve === key.algorithm.namedCurve) ?? [null, null];
-		} else if (key.algorithm.name === 'RSASSA-PKCS1-v1_5') {
-			return Object.entries(ALGOS).find(([, { name, hash }]) => name === 'RSASSA-PKCS1-v1_5' && hash === key.algorithm.hash.name) ?? [null, null];
-		} else {
-			return [null, null];
+		switch (key.algorithm.name) {
+			case 'ECDSA':
+				return Object.entries(ALGOS).find(([, { name, namedCurve }]) => (
+					name === key.algorithm.name && namedCurve === key.algorithm.namedCurve
+				)) ?? [null, null];
+
+			case 'RSASSA-PKCS1-v1_5':
+			case 'HMAC':
+			case 'RSA-PSS':
+				return Object.entries(ALGOS).find(([, { name, hash }]) => (
+					name === key.algorithm.name && hash === key.algorithm.hash.name
+				)) ?? [null, null];
+
+			case 'Ed25519':
+				return [EdDSA, ALGOS[EdDSA]];
+
+			default:
+				return [null, null];
 		}
-	}
-	if (typeof key?.algorithm?.name === 'string') {
-		return Object.entries(ALGOS).find(([, algo]) => algo.name === key.algorithm.name) ?? [null, null];
 	} else if (typeof key?.crv === 'string') {
 		return Object.entries(ALGOS).find(([, algo]) => algo.namedCurve === key.crv) ?? [null, null];
 	} else if (typeof key?.alg === 'string' && key.alg in ALGOS) {

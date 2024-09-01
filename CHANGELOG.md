@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.4] - 2024-09-01
+
+### Added
+- Added support for HS256, HS384, HS512, PS256, PS384, PS512, and EdDSA
+
+### Deprecated
+- Deprecate `generateJWKPair` (use `generateJWK` instead... It's no longer always a key pair)
+
 ## [v1.0.3] - 2024-08-31
 
 ### Added
