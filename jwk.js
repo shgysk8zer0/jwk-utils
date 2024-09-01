@@ -6,6 +6,7 @@ import { findKeyAlgo } from './utils.js';
 /**
  * Generates a new JSON Web Key (JWK) pair with the specified algorithm.
  *
+ * @deprecated
  * @param {string} algo - The algorithm to use for the JWK pair. Defaults to `"ES256"`.
  * @returns {Promise<CryptoKeyPair>} A promise that resolves to the generated JWK pair.
  * @throws {Error} - If there's an error generating the JWK pair.
