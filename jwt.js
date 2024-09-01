@@ -4,7 +4,6 @@ import { findKeyAlgo, getKeyId } from './utils.js';
 /**
  * Generates a JSON Web Token (JWT) using the provided payload and private key.
  *
- * @deprecated
  * @param {Object} payload - The payload data to include in the JWT.
  * @param {CryptoKey} privateKey - The private key used to sign the JWT.
  * @returns {Promise<string>} A promise that resolves to the generated JWT.
