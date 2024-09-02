@@ -2,6 +2,41 @@ import { ALPHABET as alphabet, ALGOS, AUTH } from './consts.js';
 import { findKeyAlgo, getKeyId } from './utils.js';
 
 /**
+ * Verifies the header of a JSON Web Token (JWT).
+ *
+ * @param {object} options - An object containing the header properties.
+ * @param {string} options.typ - The token type, expected to be 'JWT'.
+ * @param {string} options.alg - The algorithm used to sign the token, must be a string and a known algorithm (from ALGOS).
+ * @returns {boolean} True if the header is valid, false otherwise.
+ */
+export function verifyHeader({ typ, alg } = {}) {
+	return (typ === 'JWT' && typeof alg === 'string' && alg in ALGOS);
+}
+
+/**
+ * Verifies the payload of a JWT.
+ *
+ * @param {object} payload - The payload object to be verified.
+ * @param {number} leeway (optional) - Number of seconds allowed for clock skew, defaults to 60.
+ * @returns {boolean} True if the payload is valid, false otherwise.
+ */
+export function verifyPayload(payload, leeway = 60) {
+	const now = Math.floor(Date.now() / 1000);
+
+	if (typeof payload !== 'object' || payload === null) {
+		return false;
+	} else if (typeof payload.iat === 'number' && (payload.iat < (now - leeway))) {
+		return false;
+	} else if (typeof payload.nbf === 'number' && (payload.nbf < (now - leeway))) {
+		return false;
+	} else if (typeof payload.exp === 'number' && payload.exp < (now - leeway)) {
+		return false;
+	} else {
+		return true;
+	}
+}
+
+/**
  * Generates a JSON Web Token (JWT) using the provided payload and private key.
  *
  * @param {Object} payload - The payload data to include in the JWT.
@@ -77,19 +112,12 @@ export async function verifyJWT(jwt, key, { leeway = 60 } = {}) {
 		throw new TypeError('JWT must be a token/string.');
 	} else if (key instanceof CryptoKey) {
 		const { header, payload, signature, data } = decodeToken(jwt) ?? {};
-		const now = Math.floor(Date.now() / 1000);
 
-		if (typeof header === 'undefined') {
+		if (! verifyHeader(header)) {
 			return null;
-		} else if (! (header.typ === 'JWT' && typeof header.alg === 'string' && header.alg in ALGOS)) {
+		} else if (! verifyPayload(payload, leeway)) {
 			return null;
-		} else if (typeof payload.iat === 'number' && (payload.iat < (now - leeway))) {
-			return null;
-		} else if (typeof payload.nbf === 'number' && (payload.nbf < (now - leeway))) {
-			return null;
-		} else if (typeof payload.exp === 'number' && payload.exp < (now - leeway)) {
-			return null;
-		 } else if (! await crypto.subtle.verify(
+		} else if (! await crypto.subtle.verify(
 			ALGOS[header.alg],
 			key,
 			signature,

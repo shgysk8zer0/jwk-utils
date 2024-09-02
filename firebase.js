@@ -1,5 +1,5 @@
 import { ALGOS } from './consts.js';
-import { decodeRequestToken, decodeToken } from './jwt.js';
+import { decodeRequestToken, decodeToken, verifyHeader, verifyPayload } from './jwt.js';
 
 /**
  * Fetches a JSON Web Key (JWK) from Google Firebase for the given key ID (kid).
@@ -52,7 +52,7 @@ export async function getFirebaseJWK(kid, extractable = false, fetchInit = {}) {
 export async function verifyFirebaseIdToken(token, fetchInit = {}) {
 	const { header, payload, signature, data } = decodeToken(token);
 
-	if (typeof payload !== 'object' || payload === null || typeof header !== 'object' || header === null) {
+	if (! (verifyHeader(header) && verifyPayload(payload))) {
 		return null;
 	} else if (! ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'].every(prop => prop in payload)) {
 		return null;
@@ -83,7 +83,7 @@ export async function decodeFirebaseAuthRequestToken(req, fetchInit = {}) {
 	} else {
 		const { header, payload, signature, data } = decodeRequestToken(req);
 
-		if (typeof payload !== 'object' || payload === null || typeof header !== 'object' || header === null) {
+		if (! (verifyHeader(header) && verifyPayload(payload))) {
 			return null;
 		} else if (! ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'].every(prop => prop in payload)) {
 			return null;
