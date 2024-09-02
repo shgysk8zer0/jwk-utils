@@ -1,6 +1,6 @@
 {
   "name": "@shgysk8zer0/jwk-utils",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Use JWK and JWTs using the Crypto API",
   "keywords": [
     "jwk",
@@ -44,7 +44,7 @@
     "lint:js": "eslint .",
     "fix:js": "eslint . --fix",
     "build": "npm run build:js",
-    "clean": "rm -f ./*.cjs",
+    "clean": "rm -f ./*.cjs *.min.js *.map",
     "build:js": "npm run clean && rollup -c rollup.config.js",
     "run:tests": "node tests.js",
     "create:lock": "npm i --package-lock-only --ignore-scripts --no-audit --no-fund",

@@ -27,5 +27,6 @@ export default modules.map(module => ({
 		file: `${module}.min.js`,
 		format: 'esm',
 		plugins: outputPlugins,
+		sourcemap: 'external',
 	}]
 }));
