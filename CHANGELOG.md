@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.6] - 2024-09-02
+
+### Added
+- Create `.map` files for generated `.min.js` modules
+- Add `verifyHeader` and `verifyPayload` for verifying decoded JWTs
+
+### Changed
+- JWT generating and verifying functions can now take either a `CryptoKey` or `CryptoKeyPair`
+
+### Fixed
+- Fixed bad `payload.exp` check
+
 ## [v1.0.5] - 2024-09-01
 
 ### Fixed

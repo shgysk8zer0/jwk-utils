@@ -16,7 +16,6 @@ import { decodeRequestToken, createJWT, verifyJWT } from './jwt.js';
  */
 export async function createOriginAuthToken(origin, privateKey, {
 	ttl = 60,
-	leeway = 60,
 	id = crypto.getRandomValues(new Uint8Array(8)).toHex(),
 	issued = new Date(),
 } = {}) {
@@ -30,7 +29,7 @@ export async function createOriginAuthToken(origin, privateKey, {
 		return await createJWT({
 			iss: origin,
 			iat: issuedAt,
-			nbf: issuedAt - leeway,
+			nbf: issuedAt,
 			exp: issuedAt + ttl,
 			jti: id,
 		}, privateKey);

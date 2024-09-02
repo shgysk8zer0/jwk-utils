@@ -39,7 +39,7 @@ export const PUBLIC_EXPONENT = new Uint8Array([1, 0, 1]);
  * @property {Object} PS256 - Configuration for the RSA Signature Algorithm (RSA-PSS) using SHA-256 hash, a salt length of 32 bytes, a modulus length of 2048 bits, and a public exponent of 0x010001.
  * @property {Object} PS384 - Configuration for the RSA Signature Algorithm (RSA-PSS) using SHA-384 hash, a salt length of 32 bytes, a modulus length of 3072 bits, and a public exponent of 0x010001.
  * @property {Object} PS512 - Configuration for the RSA Signature Algorithm (RSA-PSS) using SHA-512 hash, a salt length of 32 bytes, a modulus length of 4096 bits, and a public exponent of 0x010001.
- * @property {Object} EdDSA - Configuration for the Edwards-Curve Digital Signature Algorithm (EdDSA) using the Ed25519 curve.
+ * @property {Object} EdDSA - Configuration for the Edwards-Curve Digital Signature Algorithm (EdDSA) using the Ed25519 curve. Limited support.
  */
 export const ALGOS = {
 	ES256: {
