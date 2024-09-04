@@ -1,6 +1,10 @@
 import { AUTH, ALGOS } from './consts.js';
 import { decodeRequestToken, createJWT, verifyJWT } from './jwt.js';
 
+const TTL = 60;
+
+const getId = (length = 8) => crypto.getRandomValues(new Uint8Array(length)).toHex();
+
 /**
  * Creates an origin authentication token (OAT) for a given origin.
  *
@@ -10,14 +14,17 @@ import { decodeRequestToken, createJWT, verifyJWT } from './jwt.js';
  * @param {number} [options.ttl=60] - The time-to-live (TTL) for the token in seconds.
  * @param {string} [options.id=crypto.randomUUID()] - A unique identifier for the token.
  * @param {Date} [options.issued=new Date()] - The issued-at time for the token.
- * @param {number} [options.leeway=60] - The leeway in seconds to account for clock skew.
- * @returns {Promise<string>} A promise that resolves to the generated OAT.
+ * @param {string} [options.subject] - Optional subject (sub) for the JWT.
+ * @param {string} [options.audience] - Optional audience (aud) for the JWT.
+ * @returns {Promise<string | Error>} A promise that resolves to the generated OAT or any error given.
  * @throws {TypeError} - If the origin is not a valid string or URL.
  */
 export async function createOriginAuthToken(origin, privateKey, {
-	ttl = 60,
-	id = crypto.getRandomValues(new Uint8Array(8)).toHex(),
+	ttl = TTL,
+	id: jti = getId(),
 	issued = new Date(),
+	subject: sub,
+	audience: aud,
 } = {}) {
 	if (typeof origin !== 'string' || origin.length === 0) {
 		throw new TypeError('Origin must be a non-empty string.');
@@ -31,7 +38,7 @@ export async function createOriginAuthToken(origin, privateKey, {
 			iat: issuedAt,
 			nbf: issuedAt,
 			exp: issuedAt + ttl,
-			jti: id,
+			jti, sub, aud,
 		}, privateKey);
 	}
 }
@@ -41,23 +48,25 @@ export async function createOriginAuthToken(origin, privateKey, {
  * Authenticates a request by generating a JWT and setting the Authorization header.
  *
  * @param {Request} req - The HTTP request object to authenticate.
- * @param {CryptoKey} privateKey - The private key used to sign the JWT.
+ * @param {CryptoKey | CryptoKeyPair} key - The private key used to sign the JWT.
  * @param {Object} [options] - Optional options for the authentication process.
  * @param {number} [options.ttl=60] - The time-to-live (TTL) for the token in seconds.
  * @param {string} [options.id=crypto.randomUUID()] - A unique identifier for the token.
  * @param {Date} [options.issued=new Date()] - The issued-at time for the token.
- * @param {number} [options.leeway=60] - The leeway in seconds to account for clock skew.
+ * @param {string} [options.subject] - Optional subject (sub) for the JWT.
+ * @param {string} [options.audience] Optional audience (aud) for the JWT.
  * @returns {Promise<Request>} A promise that resolves to the authenticated request object.
  * @throws {Error} - If there's an error generating the JWT or setting the header.
  */
-export async function authenticateRequest(req, privateKey, {
-	ttl = 60,
-	leeway = 60,
-	id = crypto.getRandomValues(new Uint8Array(8)).toHex(),
+export async function authenticateRequest(req, key, {
+	ttl = TTL,
+	id = getId(),
 	issued = new Date(),
+	subject,
+	audience,
 } = {}) {
-	const token = await createOriginAuthToken(req.headers.get('Origin'), privateKey, {
-		ttl, leeway, id, issued,
+	const token = await createOriginAuthToken(req.headers.get('Origin'), key, {
+		ttl, id, issued, subject, audience,
 	});
 
 	req.headers.set(AUTH, `Bearer ${token}`);
@@ -69,25 +78,26 @@ export async function authenticateRequest(req, privateKey, {
  * Decodes and validates an origin authentication token (OAT).
  *
  * @param {string} token - The OAT to decode and verify.
- * @param {CryptoKey} publicKey - The public key used for verification.
- * @returns {Promise<Object>} A promise that resolves to the decoded payload
+ * @param {CryptoKey | CryptoKeyPair} key - The key or key pair used for verification.
+ * @returns {Promise<object | Error>} A promise that resolves to the decoded payload or any error given in decoding/verifying.
  *                                  if the OAT is valid, or null otherwise.
- * @throws {TypeError} - If the token is malformed or the payload is invalid.
- * @throws {Error} - If the JWT signature is invalid or the token is expired.
+ * @throws {TypeError} - If `key` is not a `CryptoKey` or `CryptoKeyPair`.
  */
-export async function decodeOriginToken(token, origin, publicKey) {
-	const payload = await verifyJWT(token, publicKey);
+export async function decodeOriginToken(token, origin, key) {
+	const payload = await verifyJWT(token, key);
 
-	if (typeof payload !== 'object' || payload === null) {
-		return null;
+	if (payload instanceof Error) {
+		return payload;
+	} else if (typeof payload !== 'object' || payload === null) {
+		return new Error('Invalid token could not be parsed.');
 	} else if (typeof origin !== 'string' || origin.length === 0) {
-		return null;
+		return new TypeError('Origin is required to be a string.');
 	} else if (! ['iss', 'iat', 'exp', 'nbf'].every(key => key in payload)) {
-		return null;
+		return new Error('Payload missing required fields.');
 	} else if (typeof payload.iss !== 'string' || ! URL.parse(payload.iss)?.origin === payload.origin) {
-		return null;
+		return new Error(`Invalid issuer (iss): ${payload.iss}`);
 	} else if (payload.iss !== origin) {
-		null;
+		return new Error('Payload issuer does not match the expected origin.');
 	} else {
 		return payload;
 	}
@@ -97,36 +107,37 @@ export async function decodeOriginToken(token, origin, publicKey) {
  * Decodes and validates the request token from the Authorization header.
  *
  * @param {Request} req - The HTTP request object.
- * @returns {Promise<Object | null>} A promise that resolves to the validated payload object if valid, null otherwise.
+ * @returns {Promise<object | Error>} A promise that resolves to the validated payload object if valid, an Error of what failed otherwise.
  * @throws {TypeError} - If the provided object is not a Request object or if mandatory headers are missing.
- * @throws {Error} - If the token is invalid (e.g., expired, malformed signature).
  */
 export async function decodeRequestOriginToken(req, publicKey) {
 	if (! (req instanceof Request)) {
 		throw new TypeError('Not a request object.');
 	} else if(! req.headers.has('Origin')) {
-		throw new TypeError('Headers is missing required Origin.');
+		return new TypeError('Headers is missing required Origin.');
 	} else {
 		const now = Math.round(Date.now() / 1000);
-		const { header, payload, signature, data } = decodeRequestToken(req);
+		const result = decodeRequestToken(req);
 
-		if (typeof payload !== 'object') {
-			throw new TypeError('Invalid payload in token.');
-		} else if (! ['alg', 'kid'].every(prop => prop in header)) {
-			throw new Error('Invalid token header.');
-		} else if (! ['sub', 'iat', 'exp', 'nbf'].every(key => key in payload)) {
-			throw new TypeError('Invalid payload of token.');
-		} else if (now < payload.nbf || payload.exp < now) {
-			throw new Error('Token is expired or invalid.');
+		if (result instanceof Error) {
+			return result;
+		} else if (typeof result?.payload !== 'object') {
+			return new TypeError('Invalid payload in token.');
+		} else if (! ['alg', 'kid'].every(prop => prop in result.header)) {
+			return new Error('Invalid token header.');
+		} else if (! ['sub', 'iat', 'exp', 'nbf'].every(key => key in result.payload)) {
+			return new TypeError('Invalid payload of token.');
+		} else if (typeof result.payload.nbf !== 'number' || typeof result.payload.exp !== 'number' || now < result.payload.nbf || result.payload.exp < now) {
+			return new Error('Token is expired or invalid.');
 		} else  if (!await crypto.subtle.verify(
-			ALGOS[header.alg],
+			ALGOS[result.header.alg],
 			publicKey,
-			signature,
-			data,
+			result.signature,
+			result.data,
 		)) {
-			throw new Error('Token signature did not validate.');
+			return new Error('Token signature did not validate.');
 		} else {
-			return payload;
+			return result.payload;
 		}
 	}
 }

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.7] - 2024-09-04
+
+## Added
+- Add `createJWKBlob` in addition to `createJWKFile`
+
+### Changed
+- Improve debugging by returning `Error`s
+- Rename `loadJWKFromFile` to `loadJWKFromBlob` (supports both, as `File` extends `Blob`)
+
 ## [v1.0.6] - 2024-09-02
 
 ### Added

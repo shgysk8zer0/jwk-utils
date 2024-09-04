@@ -1,6 +1,7 @@
 # @shgysk8zer0/jwk-utils
 
 Use JWK and JWTs using the Crypto API
+[![JWT Compatible](https://jwt.io/img/badge-compatible.svg)](https://jwt.io/)
 
 [![CodeQL](https://github.com/shgysk8zer0/jwk-utils/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/shgysk8zer0/jwk-utils/actions/workflows/codeql-analysis.yml)
 ![Node CI](https://github.com/shgysk8zer0/jwk-utils/workflows/Node%20CI/badge.svg)
@@ -26,7 +27,6 @@ Use JWK and JWTs using the Crypto API
 
 - [Code of Conduct](./.github/CODE_OF_CONDUCT.md)
 - [Contributing](./.github/CONTRIBUTING.md)
-
 
 ## Installation
 
