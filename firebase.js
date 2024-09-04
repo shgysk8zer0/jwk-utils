@@ -50,23 +50,27 @@ export async function getFirebaseJWK(kid, extractable = false, fetchInit = {}) {
  * @returns {Promise<object | null>} A promise that resolves to the validated payload object.
  */
 export async function verifyFirebaseIdToken(token, fetchInit = {}) {
-	const { header, payload, signature, data } = decodeToken(token);
+	const decoded = decodeToken(token);
 
-	if (! (verifyHeader(header) && verifyPayload(payload))) {
-		return null;
-	} else if (! ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'].every(prop => prop in payload)) {
-		return null;
-	} else if (! payload.iss.startsWith('https://securetoken.google.com/')) {
-		return null;
+	if (decoded instanceof Error) {
+		return decoded;
+	} else if (! verifyHeader(decoded.header) || decoded.header.alg === 'none') {
+		return new Error('Invalid JWT header.');
+	} else if ( ! verifyPayload(decoded.payload)) {
+		return new Error('Invalid JWT paylod.');
+	} else if (! ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'].every(prop => prop in decoded.payload)) {
+		return new TypeError('Missing required fields in JWT payload.');
+	} else if (! decoded.payload.iss.startsWith('https://securetoken.google.com/')) {
+		return new TypeError('JWT payload is not from a Google/Firebase origin.');
 	} else if (! await crypto.subtle.verify(
-		ALGOS[header.alg],
-		await getFirebaseJWK(header.kid, false, fetchInit),
-		signature,
-		data,
+		ALGOS[decoded.header.alg],
+		await getFirebaseJWK(decoded.header.kid, false, fetchInit),
+		decoded.signature,
+		decoded.data,
 	)) {
-		return null;
+		return new Error('Unable to verify JWT signature.');
 	} else {
-		return payload;
+		return decoded.payload;
 	}
 }
 
@@ -74,30 +78,34 @@ export async function verifyFirebaseIdToken(token, fetchInit = {}) {
  *  Decodes and validates a Firebase request token from the Authorization header.
  *
  * @param {Request} req - The HTTP request object.
- * @returns {Promise<object | null>} A promise that resolves to the validated payload object.
+ * @returns {Promise<object | Error>} A promise that resolves to the validated payload object or any error that occurs.
  * @throws {TypeError} - If the provided object is not a Request object.
  */
 export async function decodeFirebaseAuthRequestToken(req, fetchInit = {}) {
 	if (! (req instanceof Request)) {
 		throw new TypeError('Not a request object.');
 	} else {
-		const { header, payload, signature, data } = decodeRequestToken(req);
+		const decoded = decodeRequestToken(req);
 
-		if (! (verifyHeader(header) && verifyPayload(payload))) {
-			return null;
-		} else if (! ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'].every(prop => prop in payload)) {
-			return null;
-		} else if (! payload.iss.startsWith('https://securetoken.google.com/')) {
-			return null;
+		if (decoded instanceof Error) {
+			return decoded;
+		} else if (! verifyHeader(decoded.header) || decoded.header.alg === 'none') {
+			return new Error('Invalid JWT header.');
+		} else if ( ! verifyPayload(decoded.payload)) {
+			return new Error('Invalid JWT paylod.');
+		} else if (! ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'].every(prop => prop in decoded.payload)) {
+			return new TypeError('Missing required fields in JWT payload.');
+		} else if (! decoded.payload.iss.startsWith('https://securetoken.google.com/')) {
+			return new TypeError('JWT payload is not from a Google/Firebase origin.');
 		} else if (! await crypto.subtle.verify(
-			ALGOS[header.alg],
-			await getFirebaseJWK(header.kid, false, fetchInit),
-			signature,
-			data,
+			ALGOS[decoded.header.alg],
+			await getFirebaseJWK(decoded.header.kid, false, fetchInit),
+			decoded.signature,
+			decoded.data,
 		)) {
-			return null;
+			return new Error('Unable to verify JWT signature.');
 		} else {
-			return payload;
+			return decoded.payload;
 		}
 	}
 }
