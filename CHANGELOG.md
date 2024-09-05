@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.8] - 2024-09-05
+
+### Added
+- Add `exportJWK`
+
+### Fixed
+- Fix bad check & error in `importJWK`
+
 ## [v1.0.7] - 2024-09-04
 
 ## Added

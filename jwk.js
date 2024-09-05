@@ -34,6 +34,41 @@ export async function generateJWK(algo = DEFAULT_ALGO, { extractable = true } = 
 }
 
 /**
+ * Imports a JSON Web Key (JWK) into a CryptoKey object.
+ *
+ * @param {Object} key - The JWK data to import.
+ * @returns {Promise<CryptoKe | Error>} A promise that resolves to the imported CryptoKey object or any Error.
+ */
+export async function importJWK(key) {
+	const algo = findKeyAlgo(key)[1];
+
+	if (typeof algo?.name === 'string') {
+		return await crypto.subtle.importKey(
+			'jwk',
+			key,
+			algo,
+			key.ext,
+			key.key_ops
+		).catch(err => err);
+	} else {
+		return new TypeError('Invalid or unsupported algorithm.');
+	}
+}
+
+/**
+ *
+ * @param {CryptoKey} key - The key to export.
+ * @returns {object | Error} The exported key or any error in exporing it.
+ */
+export async function exportJWK(key) {
+	if (! (key instanceof CryptoKey)) {
+		return new TypeError('Exporting of keys requires a `CryptoKey`.');
+	} else {
+		return await crypto.subtle.exportKey('jwk', key).catch(err => err);
+	}
+}
+
+/**
  * Encodes a JSON Web Key (JWK) as a base64 string.
  *
  * @param {CryptoKey} key - The JWK to encode.
@@ -92,29 +127,6 @@ export async function loadJWKFromBlob(blob) {
 		const key = JSON.parse(await blob.text());
 		return await importJWK(key);
 	}
-}
-
-/**
- * Imports a JSON Web Key (JWK) into a CryptoKey object.
- *
- * @param {Object} key - The JWK data to import.
- * @returns {Promise<CryptoKe | Errory>} A promise that resolves to the imported CryptoKey object or any Error.
- */
-export async function importJWK(key) {
-	const algo = findKeyAlgo(key)[1];
-
-	if (typeof algo === 'string') {
-		return await crypto.subtle.importKey(
-			'jwk',
-			key,
-			algo,
-			key.ext,
-			key.key_ops
-		).catch(err => err);
-	} else {
-		return new TypeError('Invalid or unsupported algorithm.');
-	}
-
 }
 
 /**
