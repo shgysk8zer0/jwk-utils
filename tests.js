@@ -1,4 +1,4 @@
-import { generateJWK, createOriginAuthToken, ALGOS, verifyRequestToken } from './jwk-utils.js';
+import { generateJWK, createOriginAuthToken, ALGOS, verifyRequestToken, HS256, createJWT, importJWK, exportJWK, verifyJWT } from './jwk-utils.js';
 
 console.time('Running tests');
 
@@ -27,6 +27,16 @@ const results = await Promise.allSettled(Object.keys(ALGOS).map(async alg => {
 
 const errs = results.filter(result => result.status === 'rejected').map(result => result.reason);
 
+// Testing importing & exporting
+const key = await generateJWK(HS256);
+const jwt = await createJWT({ foo: 'bar' }, key);
+const exported = await exportJWK(key);
+const imported = await importJWK(exported);
+const result = await verifyJWT(jwt, imported);
+
+if (result instanceof Error) {
+	errs.push(result);
+}
 console.timeEnd('Running tests');
 
 if (errs.length === 1) {
