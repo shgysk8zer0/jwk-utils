@@ -4,7 +4,10 @@ console.time('Running tests');
 
 const results = await Promise.allSettled(Object.keys(ALGOS).map(async alg => {
 	const keys = await generateJWK(alg);
-	const token = await createOriginAuthToken('https://example.com', keys, { subject: 'https://api.example.com' });
+	const token = await createOriginAuthToken('https://example.com', keys, {
+		subject: 'https://api.example.com',
+		entitlements: ['data:read', 'data:write', 'data:delete']
+	});
 	const url = new URL('https://api.example.com');
 
 	const decoded = await verifyRequestToken(new Request(url, {
@@ -14,7 +17,7 @@ const results = await Promise.allSettled(Object.keys(ALGOS).map(async alg => {
 			Origin: 'https://example.com',
 			Authorization: `Bearer ${token}`,
 		},
-	}), keys);
+	}), keys, { entitlements: ['data:read', 'data:write'] });
 
 	if (decoded === null) {
 		throw new Error(`Error decoding token: ${token}`);

@@ -39,7 +39,7 @@ export function verifyPayload(payload, leeway = 60) {
 /**
  * Generates a JSON Web Token (JWT) using the provided payload and private key.
  *
- * @param {Object} payload - The payload data to include in the JWT.
+ * @param {object} payload - The payload data to include in the JWT.
  * @param {CryptoKey | CryptoKeyPair} key - The private/secret key or key pair used to sign the JWT.
  * @returns {Promise<string>} A promise that resolves to the generated JWT.
  * @throws {Error} - If there's an error generating the JWT.
@@ -74,7 +74,7 @@ export async function createJWT(payload, key) {
 /**
  * Generates a JSON Web Token (JWT) using the provided payload and private key.
  *
- * @param {Object} payload - The payload data to include in the JWT.
+ * @param {object} payload - The payload data to include in the JWT.
  * @returns {string}} The generated unsecure (unsigend) JWT.
  */
 export function createUnsecuredJWT(payload) {
@@ -139,12 +139,13 @@ export function decodeToken(jwt) {
  *
  * @param {string} jwt - The JWT to verify and decode.
  * @param {CryptoKey | CryptoKeyPair} key - The key or key pair used to verify the JWT signature.
- * @param {Object} options - Optional options for verification.
+ * @param {object} options - Optional options for verification.
  * @param {number} options.leeway - The allowed clock skew in seconds (default: 60).
+ * @param {string[]} options.entitlements - Entitlements/permissions required.
  * @returns {Promise<object | Error>} A Promise that resolves to an object containing the decoded header, payload, signature, and raw data if the JWT is valid, or an Error if the JWT is invalid.
  * @throws {TypeError} If the given `key` is not a `CryptoKey` or `CryptoKeyPair` with a publicKey.
  */
-export async function verifyJWT(jwt, key, { leeway = 60 } = {}) {
+export async function verifyJWT(jwt, key, { leeway = 60, entitlements = [] } = {}) {
 	if (typeof jwt !== 'string') {
 		throw new TypeError('JWT must be a token/string.');
 	} else if (key instanceof CryptoKey) {
@@ -160,6 +161,11 @@ export async function verifyJWT(jwt, key, { leeway = 60 } = {}) {
 			return new Error('Invalid payload for JWT.');
 		} else if (decoded.header.alg === 'none') {
 			return new TypeError('JWT is a valid but unsecured token.');
+		} else if (
+			entitlements.length !== 0
+			&& ! (Array.isArray(decoded.payload.entitlements) && entitlements.every(perm => decoded.payload.entitlements.includes(perm)))
+		) {
+			return new Error('JWT does not have required permissions.');
 		} else if (! await crypto.subtle.verify(
 			ALGOS[decoded.header.alg],
 			key,
@@ -216,12 +222,13 @@ export function decodeRequestToken(req) {
  *
  * @param {Request} req - The HTTP request object.
  * @param {CryptoKey | CryptoKeyPair} key - The key or key pair used to verify the JWT signature.
- * @param {Object} options - Optional options for verification.
+ * @param {object} options - Optional options for verification.
  * @param {number} options.leeway - The allowed clock skew in seconds (default: 60).
+ * @param {string[]} options.entitlements - Entitlements/permissions required.
  * @returns {Object | Error} The decoded token payload if valid, Error if there was a problem decoding the token.
  * @throws {TypeError} - If the provided object is not a Request object.
  */
-export function verifyRequestToken(req, key, { leeway = 60 } = {}) {
+export function verifyRequestToken(req, key, { leeway = 60, entitlements = [] } = {}) {
 	const token = getRequestToken(req);
-	return typeof token === 'string' ? verifyJWT(token, key, { leeway }) : token;
+	return typeof token === 'string' ? verifyJWT(token, key, { leeway, entitlements }) : token;
 }

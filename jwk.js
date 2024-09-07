@@ -1,6 +1,6 @@
 import '@shgysk8zer0/polyfills';
 
-import { MIME_TYPE, DEFAULT_ALGO, ALGOS } from './consts.js';
+import { MIME_TYPE, DEFAULT_ALGO, ALGOS, HS256 } from './consts.js';
 import { findKeyAlgo } from './utils.js';
 
 /**
@@ -20,8 +20,8 @@ export async function generateJWKPair(algo = DEFAULT_ALGO) {
  * Generates a new JSON Web Key (JWK) pair or secret key (single) with the specified algorithm.
  *
  * @param {string} algo - The algorithm to use for the JWK pair. Defaults to `"ES256"`.
- * @param {Object} [options] - Optional options for the token creation.
- * @param {boolean} [extractable] - Whether or not the key may be extracted/exported.
+ * @param {object} [options] - Optional options for the token creation.
+ * @param {boolean} [extractabl=truee] - Whether or not the key may be extracted/exported.
  * @returns {Promise<CryptoKeyPair | CryptoKey>} A promise that resolves to the generated JWK pair.
  * @throws {Error} - If there's an error generating the JWK pair.
  */
@@ -36,22 +36,51 @@ export async function generateJWK(algo = DEFAULT_ALGO, { extractable = true } = 
 /**
  * Imports a JSON Web Key (JWK) into a CryptoKey object.
  *
- * @param {Object} key - The JWK data to import.
- * @returns {Promise<CryptoKe | Error>} A promise that resolves to the imported CryptoKey object or any Error.
+ * @param {object | string} key - The JWK data to import or its JSON.
+ * @returns {Promise<CryptoKey | Error>} A promise that resolves to the imported CryptoKey object or any Error.
  */
 export async function importJWK(key) {
-	const algo = findKeyAlgo(key)[1];
+	try {
+		if (typeof key === 'string') {
+			return await importJWK(JSON.parse(key));
+		} else {
+			const algo = findKeyAlgo(key)[1];
 
-	if (typeof algo?.name === 'string') {
-		return await crypto.subtle.importKey(
-			'jwk',
-			key,
-			algo,
-			key.ext,
-			key.key_ops
-		).catch(err => err);
-	} else {
-		return new TypeError('Invalid or unsupported algorithm.');
+			if (typeof algo?.name === 'string') {
+				return await crypto.subtle.importKey(
+					'jwk',
+					key,
+					algo,
+					key.ext,
+					key.key_ops
+				);
+			} else {
+				return new TypeError('Invalid or unsupported algorithm.');
+			}
+		}
+	} catch(err) {
+		return new Error('Error importing key from JWK.', { cause: err });
+	}
+}
+
+/**
+ * Imports raw data or a string into a CryptoKey object.
+ *
+ * @param {Uint8Array | string} raw - The raw data or string to import.
+ * @param {string} algorithm - The desired algorithm for the imported key.
+ * @param {boolean} [extractable=true] - Whether the imported key can be extracted.
+ * @param {KeyUsage[]} [usages=['sign', 'verify']] - The allowed usages for the imported key.
+ * @returns {Promise<CryptoKey | Error>} A promise that resolves to the imported CryptoKey object or any error that occurs.
+ */
+export async function importRawKey(raw, { algorithm = HS256, extractable = true, usages = ['sign', 'verify'] } = {}) {
+	try {
+		if (typeof raw === 'string') {
+			return await importRawKey(new TextEncoder().encode(raw), { algorithm, extractable, usages });
+		} else {
+			return await crypto.subtle.importKey('raw', raw, ALGOS[algorithm], extractable, usages);
+		}
+	} catch(err) {
+		return new Error('Error importing key from raw data', { cause: err });
 	}
 }
 
