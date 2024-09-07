@@ -1,6 +1,6 @@
 {
   "name": "@shgysk8zer0/jwk-utils",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Use JWK and JWTs using the Crypto API",
   "keywords": [
     "jwk",
@@ -8,7 +8,7 @@
     "crypto"
   ],
   "type": "module",
-  "main": "./index.cjs",
+  "main": "./jwk-utils.cjs",
   "module": "./jwk-utils.js",
   "unpkg": "./jwk-utils.js",
   "exports": {

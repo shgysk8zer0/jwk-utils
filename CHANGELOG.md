@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.9] - 2024-09-07
+
+## Added
+- Add optional checks for `entitlements`/JWT permissions
+- Add support for importing from raw
+
 ## [v1.0.8] - 2024-09-05
 
 ### Added

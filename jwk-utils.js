@@ -5,5 +5,5 @@ export * from './env.js';
 export * from './firebase.js';
 export * from './jwk.js';
 export * from './jwt.js';
-export * from './utils.js';
 export * from './origin-tokens.js';
+export * from './utils.js';

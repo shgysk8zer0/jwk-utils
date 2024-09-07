@@ -1,4 +1,9 @@
 import { ALGOS, EdDSA, SHA256 } from './consts.js';
+
+export const getOrigin = str => typeof str === 'string' ? URL.parse(str)?.origin : null;
+
+export const isOrigin = str => typeof str === 'string' && URL.parse(str)?.origin === str;
+
 /**
  * Calculates the key ID (kid) for a given JSON Web Key (JWK).
  *
@@ -26,7 +31,7 @@ export async function getKeyId(key) {
  * containing the algorithm name (string) and the corresponding algorithm configuration
  * object from `ALGOS`, or `[null, null]` if no match is found.
  *
- * @param {Object} key - The JWK object to search for the algorithm.
+ * @param {object} key - The JWK object to search for the algorithm.
  * @returns {Array<string | null, Object | null>} An array containing the algorithm name and configuration, or `[null, null]` if no match is found.
  */
 export function findKeyAlgo(key) {

@@ -22,4 +22,4 @@ export const getPublicKey = async () => await importJWKFromEnv('PUBLIC_JWK');
  * @returns {Promise<CryptoKey | null>} A promise that resolves to the imported private JWK.
  * @throws {Error} - If the environment variable is not defined or the JWK cannot be imported.
  */
-export const getPrivatekey = async () => await importJWKFromEnv('PRIVATE_JWK');
+export const getPrivateKey = async () => await importJWKFromEnv('PRIVATE_JWK');
