@@ -135,6 +135,17 @@ export function decodeToken(jwt) {
 }
 
 /**
+ * Checks if the payload of a decoded token includes given `entitlements`.
+ *
+ * @param {{ entitlements: string[] }} payload - The payload object decoded from a JWT
+ * @param {string[]} [entitlements=[]] - The entitlements/permissions to check for.
+ * @returns {boolean} - Whether or not the parsed token payload has all given `entitelments`.
+ */
+export function hasEntitlements(payload, entitlements = []) {
+	return entitlements.length === 0 || (Array.isArray(payload?.entitlements) && entitlements.every(ent => payload.entitlements.includes(ent)));
+}
+
+/**
  * Verifies and decodes a JSON Web Token (JWT).
  *
  * @param {string} jwt - The JWT to verify and decode.
@@ -163,7 +174,7 @@ export async function verifyJWT(jwt, key, { leeway = 60, entitlements = [] } = {
 			return new TypeError('JWT is a valid but unsecured token.');
 		} else if (
 			entitlements.length !== 0
-			&& ! (Array.isArray(decoded.payload.entitlements) && entitlements.every(perm => decoded.payload.entitlements.includes(perm)))
+			&& ! hasEntitlements(decoded.payload, entitlements)
 		) {
 			return new Error('JWT does not have required permissions.');
 		} else if (! await crypto.subtle.verify(
@@ -177,7 +188,7 @@ export async function verifyJWT(jwt, key, { leeway = 60, entitlements = [] } = {
 			return decoded.payload;
 		}
 	} else if (key?.publicKey instanceof CryptoKey) {
-		return await verifyJWT(jwt, key.publicKey);
+		return await verifyJWT(jwt, key.publicKey, { leeway, entitlements });
 	} else {
 		throw new TypeError('Key must be either a CryptoKey or CryptoKeyPair.');
 	}
