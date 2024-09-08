@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.10] - 2024-09-08
+
+### Added
+- Add `hasEntitlements` to verify `entitlements` of decoded JWT
+
+### Changed
+- Use `node:test` & `node:assert` / `node --test` instead of own basic tests
+
+### Fixed
+- Fix passing `leeway` and `entitlemenets` in `verifyJWT` when passed CryptokeyPair
+
+
 ## [v1.0.9] - 2024-09-07
 
 ## Added
