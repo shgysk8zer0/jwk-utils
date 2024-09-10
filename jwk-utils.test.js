@@ -1,14 +1,14 @@
+import { generateJWK, createOriginAuthToken, ALGOS, verifyRequestToken, HS256, importJWK, exportJWK, verifyJWT } from './jwk-utils.js';
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateJWK, createOriginAuthToken, ALGOS, verifyRequestToken, HS256, importJWK, exportJWK, verifyJWT } from './jwk-utils.js';
-import events from 'node:events';
+import { setMaxListeners } from 'node:events';
 
 const invalidKey = await generateJWK(HS256);
 const signal = AbortSignal.timeout(60_000);
 const algs = Object.keys(ALGOS);
 
 // Do not warn about abort event listeners causing memory leaks.
-events.setMaxListeners(algs.length * 5, signal);
+setMaxListeners(algs.length * 5, signal);
 
 describe('JWK Utils Tests', async () => {
 	for (const alg of algs) {
