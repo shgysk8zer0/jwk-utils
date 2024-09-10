@@ -25,15 +25,34 @@ export function verifyPayload(payload, leeway = 60) {
 
 	if (typeof payload !== 'object' || payload === null) {
 		return false;
-	} else if (typeof payload.iat === 'number' && (payload.iat < (now - leeway))) {
+	} else if (typeof payload.iat === 'number' && ! Number.isNaN(payload.iat) && now < (payload.iat - leeway)) {
 		return false;
-	} else if (typeof payload.nbf === 'number' && (payload.nbf < (now - leeway))) {
+	} else if (typeof payload.nbf === 'number' && ! Number.isNaN(payload.nbf) && now < (payload.nbf - leeway)) {
 		return false;
-	} else if (typeof payload.exp === 'number' && payload.exp < (now - leeway)) {
+	} else if (typeof payload.exp === 'number' && ! Number.isNaN(payload.exp) && now > (payload.exp + leeway)) {
 		return false;
 	} else {
 		return true;
 	}
+}
+
+/**
+ * Verifies the signature of a decoded JWT
+ *
+ * @param {object} decoded - The decoded JWT contents.
+ * @param {object} decoded.header - The header of the decoded JWT.
+ * @param {Uint8Array} decoded.signature - The deocded signature of the JWT.
+ * @param {Uint8Array} decoded.data - The decoded data (header & payload) of the JWT.
+ * @param {CryptoKey} key - The key to verify the signature.
+ * @returns {boolean} - Whether or not the signature was verified.
+ */
+export async function verifySignature({ header, signature, data }, key) {
+	return await crypto.subtle.verify(
+		ALGOS[header?.alg],
+		key,
+		signature,
+		data,
+	).catch(() => false);
 }
 
 /**
@@ -84,7 +103,6 @@ export function createUnsecuredJWT(payload) {
 	const encodedPayload = encoder.encode(JSON.stringify(payload)).toBase64({ alphabet }).replaceAll('=', '');
 	return `${header}.${encodedPayload}.`;
 }
-
 
 /**
  * Decodes a JSON Web Token (JWT) into its constituent parts.
@@ -151,8 +169,8 @@ export function hasEntitlements(payload, entitlements = []) {
  * @param {string} jwt - The JWT to verify and decode.
  * @param {CryptoKey | CryptoKeyPair} key - The key or key pair used to verify the JWT signature.
  * @param {object} options - Optional options for verification.
- * @param {number} options.leeway - The allowed clock skew in seconds (default: 60).
- * @param {string[]} options.entitlements - Entitlements/permissions required.
+ * @param {number} [options.leeway] - The allowed clock skew in seconds (default: 60).
+ * @param {string[]} [options.entitlements] - Entitlements/permissions required.
  * @returns {Promise<object | Error>} A Promise that resolves to an object containing the decoded header, payload, signature, and raw data if the JWT is valid, or an Error if the JWT is invalid.
  * @throws {TypeError} If the given `key` is not a `CryptoKey` or `CryptoKeyPair` with a publicKey.
  */
@@ -177,12 +195,7 @@ export async function verifyJWT(jwt, key, { leeway = 60, entitlements = [] } = {
 			&& ! hasEntitlements(decoded.payload, entitlements)
 		) {
 			return new Error('JWT does not have required permissions.');
-		} else if (! await crypto.subtle.verify(
-			ALGOS[decoded.header.alg],
-			key,
-			decoded.signature,
-			decoded.data,
-		).catch(() => false)) {
+		} else if (! await verifySignature(decoded, key)) {
 			return new Error('Unable to verify JWT signature.');
 		} else {
 			return decoded.payload;
@@ -234,8 +247,8 @@ export function decodeRequestToken(req) {
  * @param {Request} req - The HTTP request object.
  * @param {CryptoKey | CryptoKeyPair} key - The key or key pair used to verify the JWT signature.
  * @param {object} options - Optional options for verification.
- * @param {number} options.leeway - The allowed clock skew in seconds (default: 60).
- * @param {string[]} options.entitlements - Entitlements/permissions required.
+ * @param {number} [options.leeway=60] - The allowed clock skew in seconds (default: 60).
+ * @param {string[]} [options.entitlements=[]] - Entitlements/permissions required.
  * @returns {Object | Error} The decoded token payload if valid, Error if there was a problem decoding the token.
  * @throws {TypeError} - If the provided object is not a Request object.
  */

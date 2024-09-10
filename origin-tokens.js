@@ -1,5 +1,5 @@
-import { AUTH, ALGOS } from './consts.js';
-import { decodeRequestToken, createJWT, verifyJWT } from './jwt.js';
+import { AUTH } from './consts.js';
+import { decodeRequestToken, createJWT, verifyJWT, verifySignature } from './jwt.js';
 import { isOrigin } from './utils.js';
 
 const TTL = 60;
@@ -121,7 +121,7 @@ export async function decodeOriginToken(token, origin, key) {
  * @returns {Promise<object | Error>} A promise that resolves to the validated payload object if valid, an Error of what failed otherwise.
  * @throws {TypeError} - If the provided object is not a Request object or if mandatory headers are missing.
  */
-export async function decodeRequestOriginToken(req, publicKey, { entitlements = [] } = {}) {
+export async function decodeRequestOriginToken(req, key, { entitlements = [] } = {}) {
 	if (! (req instanceof Request)) {
 		throw new TypeError('Not a request object.');
 	} else if(! req.headers.has('Origin')) {
@@ -142,12 +142,7 @@ export async function decodeRequestOriginToken(req, publicKey, { entitlements = 
 			return new Error('Token is expired or invalid.');
 		} else if (! (Array.isArray(result.payload.entitlements) && entitlements.every(perm => result.payload.entitlements.includes(perm)))) {
 			return new Error('Token is valid but does not have necessary entitlements/permissions.');
-		} else  if (!await crypto.subtle.verify(
-			ALGOS[result.header.alg],
-			publicKey,
-			result.signature,
-			result.data,
-		)) {
+		} else  if (!await verifySignature(result, key)) {
 			return new Error('Token signature did not validate.');
 		} else {
 			return result.payload;

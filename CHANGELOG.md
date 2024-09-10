@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.11] - 2024-09-10
+
+### Added
+- Add `verifySignature` function to normalize this
+
+### Fixed
+- Fix `iat`, `exp` checks
+
 ## [v1.0.10] - 2024-09-08
 
 ### Added
