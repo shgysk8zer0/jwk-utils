@@ -1,5 +1,3 @@
-import '@shgysk8zer0/polyfills';
-
 import { MIME_TYPE, DEFAULT_ALGO, ALGOS, HS256 } from './consts.js';
 import { findKeyAlgo } from './utils.js';
 
