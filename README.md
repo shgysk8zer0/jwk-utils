@@ -67,14 +67,30 @@ import { generateJWK, createJWT, verifyJWT } from '@shgysk8zer0/jwt-jwk';
 // Generate a JWK pair
 const { publicKey, privateKey } = await generateJWK();
 
+// JWTs use Unix timestamps - seconds, not ms.
+const now = Math.floor(Date.now() / 1000);
 // Create a JWT
-const token = await createJWT({ data: 'some payload' }, privateKey);
+const token = await createJWT({
+  iss: 'Some issuer',
+  sub: 'The Subject',
+  iat: now,
+  exp: now + 60,
+  nbf: now,
+  jti: crypto.randomUUID(),
+  scope: 'api',
+  entitlements: ['db:read'],
+}, privateKey);
 
 // Verify the JWT
-const verifiedPayload = await verifyJWT(token, publicKey);
+const verifiedPayload = await verifyJWT(token, publicKey, { entitlements: ['db:read'] });
 ```
 
 ## Limitations
 
 Due to using JWKs and public/private keys, this currently does not support algorithms
 not suppported by `crypto.subtle`.
+
+> [!Note]
+> Polyfills, especially for `Unit8Array.fromBase64()` & `Uint8Array.prototype.toBase64()` are required. They are
+> provided by `@shgysk8zer0/polyfills`, which is imported in the main package (`@shgysk8zer0/jwk-utils`). However,
+for compatibility with client-side usage and to avoid conflicts, it is not imported by direct imports.

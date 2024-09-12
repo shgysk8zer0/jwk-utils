@@ -1,6 +1,7 @@
 export const AUTH = 'Authorization';
 export const ALPHABET = 'base64url';
 export const MIME_TYPE = 'application/jwk+json';
+export const LEEWAY = 60;
 
 export const ES256 = 'ES256';
 export const ES384 = 'ES384';
