@@ -1,6 +1,6 @@
 {
   "name": "@shgysk8zer0/jwk-utils",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Use JWK and JWTs using the Crypto API",
   "keywords": [
     "jwk",
@@ -46,7 +46,7 @@
     "build": "npm run build:js",
     "clean": "rm -f ./*.cjs *.min.js *.map",
     "build:js": "npm run clean && rollup -c rollup.config.js",
-    "run:tests": "node --test",
+    "run:tests": "node --test --env-file='.env'",
     "create:lock": "npm i --package-lock-only --ignore-scripts --no-audit --no-fund",
     "version:bump": "npm run version:bump:patch",
     "version:bump:patch": "npm version --no-git-tag-version patch && npm run create:lock",

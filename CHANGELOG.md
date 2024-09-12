@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.13] - 2024-09-12
+
+### Added
+- Add `getSigningKey` and `getVerifyingKey`
+- Extend testing to cover all functions (func coverage = 92.11%)
+- Add optional `claims` check to `verifyPayload`
+- Add `refreshJWT` to update `iss` and `exp` of tokens
+
+### Changed
+- Rename `decodeOriginToken` -> `verifyOriginToken` & `verifyOriginToken` -> `verifyRequestOriginToken`
+
 ## [v1.0.12] - 2024-09-10
 
 ### Removed

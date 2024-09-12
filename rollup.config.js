@@ -2,6 +2,8 @@ import nodeResolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 
 const external = ['@shgysk8zer0/polyfills'];
+const plugins = [nodeResolve()];
+const outputPlugins = [terser()];
 const modules = [
 	'consts',
 	'env',
@@ -12,8 +14,6 @@ const modules = [
 	'origin-tokens',
 	'utils',
 ];
-const plugins = [nodeResolve()];
-const outputPlugins = [terser()];
 
 export default modules.map(module => ({
 	input: `${module}.js`,

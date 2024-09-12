@@ -1,8 +1,10 @@
-import { AUTH } from './consts.js';
-import { decodeRequestToken, createJWT, verifyJWT, verifySignature } from './jwt.js';
+import { AUTH, LEEWAY } from './consts.js';
+import { createJWT, verifyJWT, getRequestToken } from './jwt.js';
 import { isOrigin } from './utils.js';
 
 const TTL = 60;
+
+const EXPECTED_CLAIMS = ['iat', 'exp', 'nbf', 'jti', 'entitlements', 'scope'];
 
 const getId = (length = 8) => crypto.getRandomValues(new Uint8Array(length)).toHex();
 
@@ -90,12 +92,14 @@ export async function authenticateRequest(req, key, {
  *
  * @param {string} token - The OAT to decode and verify.
  * @param {CryptoKey | CryptoKeyPair} key - The key or key pair used for verification.
+ * @param {object} options - Optional options for verification.
+ * @param {number} [options.leeway] - The allowed clock skew in seconds (default: 60).
+ * @param {string[]} [options.entitlements] - Entitlements/permissions required.
  * @returns {Promise<object | Error>} A promise that resolves to the decoded payload or any error given in decoding/verifying.
- *                                  if the OAT is valid, or null otherwise.
  * @throws {TypeError} - If `key` is not a `CryptoKey` or `CryptoKeyPair`.
  */
-export async function decodeOriginToken(token, origin, key) {
-	const payload = await verifyJWT(token, key);
+export async function verifyOriginToken(token, origin, key, { entitlements = [], leeway = LEEWAY } = {}) {
+	const payload = await verifyJWT(token, key, { entitlements, leeway, claims: EXPECTED_CLAIMS });
 
 	if (payload instanceof Error) {
 		return payload;
@@ -103,49 +107,38 @@ export async function decodeOriginToken(token, origin, key) {
 		return new Error('Invalid token could not be parsed.');
 	} else if (typeof origin !== 'string' || origin.length === 0) {
 		return new TypeError('Origin is required to be a string.');
-	} else if (! ['iss', 'iat', 'exp', 'nbf'].every(key => key in payload)) {
-		return new Error('Payload missing required fields.');
-	} else if (typeof payload.iss !== 'string' || ! URL.parse(payload.iss)?.origin === payload.origin) {
+	} else if (typeof payload.iss !== 'string' || ! URL.parse(payload.iss)?.origin === origin) {
 		return new Error(`Invalid issuer (iss): ${payload.iss}`);
 	} else if (payload.iss !== origin) {
-		return new Error('Payload issuer does not match the expected origin.');
+		return new Error(`Payload issuer does not match the expected origin: ${payload.iss}`);
 	} else {
 		return payload;
 	}
 }
 
 /**
- * Decodes and validates the request token from the Authorization header.
+ * Decodes and validates the request token from the Authorization header or query string.
  *
  * @param {Request} req - The HTTP request object.
+ * @param {CryptoKey | CryptoKeyPair} - The key or key pair to verify the signature against.
+ * @param {object} options - Optional options for verification.
+ * @param {number} [options.leeway] - The allowed clock skew in seconds (default: 60).
+ * @param {string[]} [options.entitlements] - Entitlements/permissions required.
  * @returns {Promise<object | Error>} A promise that resolves to the validated payload object if valid, an Error of what failed otherwise.
  * @throws {TypeError} - If the provided object is not a Request object or if mandatory headers are missing.
  */
-export async function decodeRequestOriginToken(req, key, { entitlements = [] } = {}) {
+export async function verifyRequestOriginToken(req, key, { entitlements = [], leeway = LEEWAY } = {}) {
 	if (! (req instanceof Request)) {
 		throw new TypeError('Not a request object.');
 	} else if(! req.headers.has('Origin')) {
 		return new TypeError('Headers is missing required Origin.');
 	} else {
-		const now = Math.round(Date.now() / 1000);
-		const result = decodeRequestToken(req);
+		const token = getRequestToken(req);
 
-		if (result instanceof Error) {
-			return result;
-		} else if (typeof result?.payload !== 'object') {
-			return new TypeError('Invalid payload in token.');
-		} else if (! ['alg', 'kid'].every(prop => prop in result.header)) {
-			return new Error('Invalid token header.');
-		} else if (! ['sub', 'iat', 'exp', 'nbf', 'jti', 'entitlements', 'scope'].every(key => key in result.payload)) {
-			return new TypeError('Invalid payload of token.');
-		} else if (typeof result.payload.nbf !== 'number' || typeof result.payload.exp !== 'number' || now < result.payload.nbf || result.payload.exp < now) {
-			return new Error('Token is expired or invalid.');
-		} else if (! (Array.isArray(result.payload.entitlements) && entitlements.every(perm => result.payload.entitlements.includes(perm)))) {
-			return new Error('Token is valid but does not have necessary entitlements/permissions.');
-		} else  if (!await verifySignature(result, key)) {
-			return new Error('Token signature did not validate.');
+		if (typeof token !== 'string') {
+			return new Error('Request does not contain a JWT.');
 		} else {
-			return result.payload;
+			return await verifyOriginToken(token, req.headers.get('Origin'), key, { entitlements, leeway });
 		}
 	}
 }

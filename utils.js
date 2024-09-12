@@ -2,7 +2,7 @@ import { ALGOS, EdDSA, SHA256 } from './consts.js';
 
 export const getOrigin = str => typeof str === 'string' ? URL.parse(str)?.origin : null;
 
-export const isOrigin = str => typeof str === 'string' && URL.parse(str)?.origin === str;
+export const isOrigin = str => typeof str === 'string' && getOrigin(str) === str;
 
 /**
  * Calculates the key ID (kid) for a given JSON Web Key (JWK).
