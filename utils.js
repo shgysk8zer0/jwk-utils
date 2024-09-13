@@ -9,7 +9,7 @@ export const isOrigin = str => typeof str === 'string' && getOrigin(str) === str
  *
  * @param {CryptoKey} key - The JWK to calculate the key ID for.
  * @returns {Promise<string | TypeError>} A promise that resolves to the calculated key ID or a TypeError is key cannot be extracted.
- * @throws {Error} - If there's an error exporting or hashing the JWK.
+ * @throws {Error} If there's an error exporting or hashing the JWK.
  */
 export async function getKeyId(key) {
 	if (! (key instanceof CryptoKey)) {
@@ -32,7 +32,7 @@ export async function getKeyId(key) {
  * object from `ALGOS`, or `[null, null]` if no match is found.
  *
  * @param {object} key - The JWK object to search for the algorithm.
- * @returns {Array<string | null, Object | null>} An array containing the algorithm name and configuration, or `[null, null]` if no match is found.
+ * @returns {Array<string | null, object | null>} An array containing the algorithm name and configuration, or `[null, null]` if no match is found.
  */
 export function findKeyAlgo(key) {
 	if (key instanceof CryptoKey) {

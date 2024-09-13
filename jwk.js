@@ -5,9 +5,9 @@ import { findKeyAlgo } from './utils.js';
  * Generates a new JSON Web Key (JWK) pair with the specified algorithm.
  *
  * @deprecated
- * @param {string} algo - The algorithm to use for the JWK pair. Defaults to `"ES256"`.
+ * @param {string} [algo='ES256'] - The algorithm to use for the JWK pair. Defaults to `"ES256"`.
  * @returns {Promise<CryptoKeyPair>} A promise that resolves to the generated JWK pair.
- * @throws {Error} - If there's an error generating the JWK pair.
+ * @throws {Error} If there's an error generating the JWK pair.
  */
 export async function generateJWKPair(algo = DEFAULT_ALGO) {
 	console.warn('`generateJWKPair` is deprecated. Please use `generateJWK` instead.');
@@ -17,11 +17,11 @@ export async function generateJWKPair(algo = DEFAULT_ALGO) {
 /**
  * Generates a new JSON Web Key (JWK) pair or secret key (single) with the specified algorithm.
  *
- * @param {string} algo - The algorithm to use for the JWK pair. Defaults to `"ES256"`.
+ * @param {string} [algo='ES256'] - The algorithm to use for the JWK pair. Defaults to `"ES256"`.
  * @param {object} [options] - Optional options for the token creation.
- * @param {boolean} [extractabl=truee] - Whether or not the key may be extracted/exported.
+ * @param {boolean} [extractabl=true] - Whether or not the key may be extracted/exported.
  * @returns {Promise<CryptoKeyPair | CryptoKey>} A promise that resolves to the generated JWK pair.
- * @throws {Error} - If there's an error generating the JWK pair.
+ * @throws {Error} If there's an error generating the JWK pair.
  */
 export async function generateJWK(algo = DEFAULT_ALGO, { extractable = true } = {}) {
 	return await crypto.subtle.generateKey(
@@ -65,7 +65,7 @@ export async function importJWK(key) {
  * Imports raw data or a string into a CryptoKey object.
  *
  * @param {Uint8Array | string} raw - The raw data or string to import.
- * @param {string} algorithm - The desired algorithm for the imported key.
+ * @param {string} [algorithm='HS256'] - The desired algorithm for the imported key.
  * @param {boolean} [extractable=true] - Whether the imported key can be extracted.
  * @param {KeyUsage[]} [usages=['sign', 'verify']] - The allowed usages for the imported key.
  * @returns {Promise<CryptoKey | Error>} A promise that resolves to the imported CryptoKey object or any error that occurs.
@@ -78,7 +78,7 @@ export async function importRawKey(raw, { algorithm = HS256, extractable = true,
 			return await crypto.subtle.importKey('raw', raw, ALGOS[algorithm], extractable, usages);
 		}
 	} catch(err) {
-		return new Error('Error importing key from raw data', { cause: err });
+		return new Error('Error importing key from raw data.', { cause: err });
 	}
 }
 
@@ -100,7 +100,7 @@ export async function exportJWK(key) {
  *
  * @param {CryptoKey} key - The JWK to encode.
  * @returns {Promise<string>} A promise that resolves to the base64-encoded JWK.
- * @throws {Error} - If there's an error exporting or encoding the JWK.
+ * @throws {Error} If there's an error exporting or encoding the JWK.
  */
 export async function base64EncodeJWK(key) {
 	const extracted = await crypto.subtle.exportKey('jwk', key);
@@ -110,10 +110,10 @@ export async function base64EncodeJWK(key) {
 /**
  * Creates a new File object containing a JSON Web Key (JWK) in a specified format.
  *
- * @param {CryptoKey} key - The JWK to export.
+ * @param {CryptoKey} key - The `CryptoKey` to export to `File`.
  * @param {string} [name] - The desired name for the file. If not provided, a default name based on the key type is used.
  * @returns {Promise<File>} A promise that resolves to the created File object.
- * @throws {Error} - If there's an error exporting the JWK or creating the file.
+ * @throws {Error} If there's an error exporting the JWK or creating the file.
  */
 export async function createJWKFile(key, name) {
 	const extracted = await crypto.subtle.exportKey('jwk', key);
@@ -128,9 +128,9 @@ export async function createJWKFile(key, name) {
 /**
  * Creates a new File object containing a JSON Web Key (JWK) in a specified format.
  *
- * @param {CryptoKey} key - The JWK to export.
+ * @param {CryptoKey} key - The `CryptoKey` to export to `Blob`.
  * @returns {Promise<Blob>} A promise that resolves to the created Blob object.
- * @throws {Error} - If there's an error exporting the JWK or creating the file.
+ * @throws {Error} If there's an error exporting the JWK or creating the file.
  */
 export async function createJWKBlob(key) {
 	const extracted = await crypto.subtle.exportKey('jwk', key);
@@ -142,8 +142,8 @@ export async function createJWKBlob(key) {
  *
  * @param {Blob | File} blob - The Blob (including File) object containing the JWK data.
  * @returns {Promise<CryptoKey>} A promise that resolves to the imported JWK.
- * @throws {TypeError} - If the provided object is not a Blob object or the file has an incorrect MIME type.
- * @throws {Error} - If there's an error parsing the JWK data or importing the key.
+ * @throws {TypeError} If the provided object is not a Blob object or the file has an incorrect MIME type.
+ * @throws {Error} If there's an error parsing the JWK data or importing the key.
  */
 export async function loadJWKFromBlob(blob) {
 	if (! (blob instanceof Blob)) {
@@ -163,12 +163,16 @@ export async function loadJWKFromBlob(blob) {
  * @returns {Promise<CryptoKey | Error>} A promise that resolves to the imported JWK or any Error.
  */
 export async function importJWKFromBase64(keyData) {
-	if (typeof keyData === 'string' && keyData.length !== 0) {
-		const key = JSON.parse(new TextDecoder().decode(Uint8Array.fromBase64(keyData)));
+	try {
+		if (typeof keyData === 'string' && keyData.length !== 0) {
+			const key = JSON.parse(new TextDecoder().decode(Uint8Array.fromBase64(keyData)));
 
-		return await importJWK(key);
-	} else {
-		return new TypeError('Key data to decode must me a non-empty string.');
+			return await importJWK(key);
+		} else {
+			return new TypeError('Key data to decode must me a non-empty string.');
+		}
+	} catch(err) {
+		return err;
 	}
 }
 
@@ -176,7 +180,7 @@ export async function importJWKFromBase64(keyData) {
  * Fetches a JSON Web Key (JWK) from a specified URL.
  *
  * @param {string | URL} url - The URL of the JWK resource.
- * @param {FetchInit | object} [options] - Optional options for the fetch request.
+ * @param {RequestInit} [options] - Optional options for the fetch request.
  * @param {Headers | object} [options.headers] - The headers to include in the fetch request. Defaults to a `Headers` object with `Accept: application/jwk+json`.
  * @param {string} [options.method='GET'] - The HTTP method to use for the fetch request. Defaults to 'GET'.
  * @param {string} [options.referrerPolicy='no-referrer'] - The referrer policy to use for the fetch request. Defaults to 'no-referrer'.
@@ -188,12 +192,10 @@ export async function importJWKFromBase64(keyData) {
  */
 export async function fetchJWK(url, {
 	headers = new Headers({ Accept: MIME_TYPE }),
-	method = 'GET',
 	referrerPolicy = 'no-referrer',
 	redirect = 'error',
 	crossOrigin = 'anonymous',
-	integrity,
-	signal,
+	...fetchInit
 } = {}) {
 	if (! (headers instanceof Headers)) {
 		headers = new Headers(headers);
@@ -204,7 +206,7 @@ export async function fetchJWK(url, {
 	}
 
 	try {
-		const resp = await fetch(url, { headers, method, referrerPolicy, redirect, crossOrigin, integrity, signal });
+		const resp = await fetch(url, { headers, referrerPolicy, redirect, crossOrigin, ...fetchInit });
 
 		if (resp.ok && resp.headers.get('Content-Type').split(';')[0] === MIME_TYPE) {
 			return await importJWK(await resp.json());

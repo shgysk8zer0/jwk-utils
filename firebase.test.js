@@ -8,7 +8,7 @@ describe('Firebase JWT tests', async () => {
 	const KID = '02100716fdd904e5b4d49116ff5dbdfc98999401';
 
 	test('Import Firebase public key', { signal }, async () => {
-		const key = await getFirebaseJWK(KID,{ signal });
+		const key = await getFirebaseJWK(KID, false, { signal, referrerPolicy: 'no-referrer', mode: 'cors' });
 		assert.ok(key instanceof CryptoKey, '`getFirebaseJWK` should return a `CryptoKey`.');
 	});
 

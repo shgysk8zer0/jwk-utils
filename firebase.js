@@ -1,5 +1,7 @@
-import { ALGOS } from './consts.js';
+import { ALGOS, LEEWAY } from './consts.js';
 import { decodeRequestToken, decodeToken, verifyHeader, verifyPayload } from './jwt.js';
+
+const REQUIRED_CLAIMS = ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'];
 
 /**
  * Fetches a JSON Web Key (JWK) from Google Firebase for the given key ID (kid).
@@ -8,7 +10,7 @@ import { decodeRequestToken, decodeToken, verifyHeader, verifyPayload } from './
  *
  * @param {string} kid - The key ID (kid) of the JWK to fetch.
  * @property {boolean} [extractable=false] - Whether the imported key is extractable. Defaults to false.
- * @property {FetchInit | object} [fetchInit] - (Optional) An object containing options to pass directly to the `fetch` function.
+ * @property {RequestInit} [fetchInit] - (Optional) An object containing options to pass directly to the `fetch` function.
  *
  * @returns {Promise<CryptoKey | null>}
  *  - Resolves to the imported JWK object if the key with the specified `kid` is found.
@@ -46,7 +48,7 @@ export async function getFirebaseJWK(kid, extractable = false, fetchInit = {}) {
  * Fetches a JSON Web Key (JWK) from Google Firebase for the given key ID (kid).
  *
  * @param {string} token - The Firebase ID token for a user.
- * @param {FetchInit} fetchInit - (Optional) An object containing options for the fetch request.
+ * @param {RequestInit} fetchInit - (Optional) An object containing options for the fetch request.
  * @returns {Promise<object | null>} A promise that resolves to the validated payload object.
  */
 export async function verifyFirebaseIdToken(token, fetchInit = {}) {
@@ -78,23 +80,22 @@ export async function verifyFirebaseIdToken(token, fetchInit = {}) {
  *  Decodes and validates a Firebase request token from the Authorization header.
  *
  * @param {Request} req - The HTTP request object.
+ * @param {RequestInit} [fetchInit={}] Config for fetch request.
+ * @param {object} [options] - Optional options
+ * @param {number} [options.leeway=60] - The allowed clock skew in seconds (default: 60).
  * @returns {Promise<object | Error>} A promise that resolves to the validated payload object or any error that occurs.
- * @throws {TypeError} - If the provided object is not a Request object.
+ * @throws {TypeError} If the provided object is not a Request object.
  */
-export async function decodeFirebaseAuthRequestToken(req, fetchInit = {}) {
+export async function verifyFirebaseAuthRequestToken(req, fetchInit = {}, { leeway = LEEWAY } = {}) {
 	if (! (req instanceof Request)) {
 		throw new TypeError('Not a request object.');
 	} else {
-		const decoded = decodeRequestToken(req);
+		const decoded = decodeRequestToken(req, { leeway, claims: REQUIRED_CLAIMS });
 
 		if (decoded instanceof Error) {
 			return decoded;
-		} else if (! verifyHeader(decoded.header) || decoded.header.alg === 'none') {
-			return new Error('Invalid JWT header.');
-		} else if ( ! verifyPayload(decoded.payload)) {
-			return new Error('Invalid JWT paylod.');
-		} else if (! ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'].every(prop => prop in decoded.payload)) {
-			return new TypeError('Missing required fields in JWT payload.');
+		} else if (decoded.header.alg === 'none') {
+			return new Error('Invalid JWT algorithm in header.');
 		} else if (! decoded.payload.iss.startsWith('https://securetoken.google.com/')) {
 			return new TypeError('JWT payload is not from a Google/Firebase origin.');
 		} else if (! await crypto.subtle.verify(
