@@ -8,7 +8,7 @@ const decoder = new TextDecoder('utf-8');
  * Gets the key valid for signing from a `CryptoKey` or `CryptoKeyPair`.
  *
  * @param {CryptoKey | CryptoKeyPair} keys - Key or key pair to find signing key in.
- * @returns {CryptoKey | Error} - CryptoKey with "sign" usage if found or error if not found.
+ * @returns {CryptoKey | Error} CryptoKey with "sign" usage if found or error if not found.
  */
 export function getSigningKey(keys) {
 	if (keys instanceof CryptoKey && keys.usages.includes('sign')) {
@@ -24,7 +24,7 @@ export function getSigningKey(keys) {
  * Gets the key valid for verifying from a `CryptoKey` or `CryptoKeyPair`.
  *
  * @param {CryptoKey | CryptoKeyPair} keys - Key or key pair to find verifying key in.
- * @returns {CryptoKey | Error} - CryptoKey with "verify" usage if found or error if not found.
+ * @returns {CryptoKey | Error} CryptoKey with "verify" usage if found or error if not found.
  */
 export function getVerifyingKey(keys) {
 	if (keys instanceof CryptoKey && keys.usages.includes('verify')) {
@@ -52,8 +52,8 @@ export function verifyHeader({ typ, alg } = {}) {
  * Verifies the payload of a JWT.
  *
  * @param {object} payload - The payload object to be verified.
- * @param {number} leeway (optional) - Number of seconds allowed for clock skew, defaults to 60.
- * @param {string[]} claims=[] - Expected claims for the payload.
+ * @param {number} [leeway=60] (optional) - Number of seconds allowed for clock skew, defaults to 60.
+ * @param {string[]} [claims=[]] - Expected claims for the payload.
  * @returns {boolean} True if the payload is valid, false otherwise.
  */
 export function verifyPayload(payload, leeway = LEEWAY, claims = []) {
@@ -79,7 +79,7 @@ export function verifyPayload(payload, leeway = LEEWAY, claims = []) {
  *
  * @param {{ entitlements: string[] }} payload - The payload object decoded from a JWT
  * @param {string[]} [entitlements=[]] - The entitlements/permissions to check for.
- * @returns {boolean} - Whether or not the parsed token payload has all given `entitelments`.
+ * @returns {boolean} Whether or not the parsed token payload has all given `entitelments`.
  */
 export function hasEntitlements(payload, entitlements = []) {
 	return entitlements.length === 0 || (Array.isArray(payload?.entitlements) && entitlements.every(ent => payload.entitlements.includes(ent)));
@@ -93,8 +93,8 @@ export function hasEntitlements(payload, entitlements = []) {
  * @param {Uint8Array} decoded.signature - The deocded signature of the JWT.
  * @param {Uint8Array} decoded.data - The decoded data (header & payload) of the JWT.
  * @param {CryptoKey} key - The key to verify the signature.
- * @returns {Promise<boolean>} - Whether or not the signature was verified.
- * @throws {TypeError} - If the key is not a CryptoKey or if it lacks "verify" in usages.
+ * @returns {Promise<boolean>} Whether or not the signature was verified.
+ * @throws {TypeError} If the key is not a CryptoKey or if it lacks "verify" in usages.
  */
 export async function verifySignature({ header, signature, data }, key) {
 	if (! (key instanceof CryptoKey)) {
@@ -117,8 +117,8 @@ export async function verifySignature({ header, signature, data }, key) {
  * @param {object} payload - The payload data to include in the JWT.
  * @param {CryptoKey | CryptoKeyPair} key - The private/secret key or key pair used to sign the JWT.
  * @returns {Promise<string>} A promise that resolves to the generated JWT.
- * @throws {TypeError} - If the key is not a CryptoKey/CryptoKeyPair or if it lacks "sign" in usages.
- * @throws {Error} - If there's an error generating the JWT.
+ * @throws {TypeError} If the key is not a CryptoKey/CryptoKeyPair or if it lacks "sign" in usages.
+ * @throws {Error} If there's an error generating the JWT.
  */
 export async function createJWT(payload, key) {
 	const signingKey = getSigningKey(key);
@@ -156,7 +156,7 @@ export async function createJWT(payload, key) {
  * @param {Date} [options.issued=new Date()] - The date when the new token is issued (used for the `iat` claim).
  * @param {number} [options.ttl=60] - Time-to-live for the token, in seconds, used to set the `exp` claim.
  *
- * @returns {Promise<string|Error>} - Returns the refreshed JWT as a string or an Error if something goes wrong.
+ * @returns {Promise<string|Error>} Returns the refreshed JWT as a string or an Error if something goes wrong.
  */
 export async function refreshJWT(token, keys, { issued = new Date(), ttl = 60 } = {}) {
 	const signingKey = getSigningKey(keys);
@@ -220,7 +220,7 @@ export function createUnsecuredJWT(payload) {
  * @param {string[]} [options.claims=[]] - Required/expected claims in a payload object.
  * @param {number} [options.leeway=60] - The allowed clock skew in seconds (default: 60).
  * @returns {{ header: object, payload: object, signature: Uint8Array, data: Uint8Array } | Error} An object containing the decoded header, payload, signature, and raw data or any error that occured in parsing the token.
- * @throws {TypeError} - If the JWT is not a string.
+ * @throws {TypeError} If the JWT is not a string.
  */
 export function decodeToken(jwt, { claims = [], leeway = LEEWAY } = {}) {
 	if (typeof jwt !== 'string') {
@@ -311,7 +311,7 @@ export async function verifyJWT(jwt, key, { leeway = LEEWAY, entitlements = [], 
  *
  * @param {Request} req - The HTTP request object.
  * @returns {string | null} The request token if found, null if Authorization header is missing or invalid.
- * @throws {TypeError} - If the provided object is not a Request object.
+ * @throws {TypeError} If the provided object is not a Request object.
  */
 export function getRequestToken(req) {
 	if (! (req instanceof Request)) {
@@ -335,7 +335,7 @@ export function getRequestToken(req) {
  * @param {number} [options.leeway] - The allowed clock skew in seconds (default: 60).
  * @param {string[]} [options.claims=[]] - Required/expected claims in a payload object.
  * @returns {object | Error} The decoded token object if valid, Error if there was a problem decoding the token.
- * @throws {TypeError} - If the provided object is not a Request object.
+ * @throws {TypeError} If the provided object is not a Request object.
  */
 export function decodeRequestToken(req, { claims = [], leeway = LEEWAY } = {}) {
 	const token = getRequestToken(req);
@@ -352,9 +352,9 @@ export function decodeRequestToken(req, { claims = [], leeway = LEEWAY } = {}) {
  * @param {string[]} [options.claims=[]] - Required/expected claims in a payload object.
  * @param {string[]} [options.entitlements=[]] - Entitlements/permissions required.
  * @returns {Promise<object | Error>} The decoded token payload if valid, Error if there was a problem decoding the token.
- * @throws {TypeError} - If the provided object is not a Request object.
+ * @throws {TypeError} If the provided object is not a Request object.
  */
-export async function verifyRequestToken(req, key, { leeway = LEEWAY, entitlements = [] } = {}) {
+export async function verifyRequestToken(req, key, { leeway = LEEWAY, claims = [], entitlements = [] } = {}) {
 	const token = getRequestToken(req);
-	return typeof token === 'string' ? await verifyJWT(token, key, { leeway, entitlements }) : token;
+	return typeof token === 'string' ? await verifyJWT(token, key, { leeway, claims, entitlements }) : token;
 }

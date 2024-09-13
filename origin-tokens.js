@@ -6,6 +6,12 @@ const TTL = 60;
 
 const EXPECTED_CLAIMS = ['iat', 'exp', 'nbf', 'jti', 'entitlements', 'scope'];
 
+/**
+ * Creates a random hex string of a given number of bytes.
+ *
+ * @param {number} [length=8] - Number of bytes.
+ * @returns {string} A random hex string.
+ */
 const getId = (length = 8) => crypto.getRandomValues(new Uint8Array(length)).toHex();
 
 /**
@@ -24,7 +30,7 @@ const getId = (length = 8) => crypto.getRandomValues(new Uint8Array(length)).toH
  * @param {string | null} [options.scope=null] - Scope for the Stateless origin token.
  * @param {...any} [options] - Any additional data to include in the payload.
  * @returns {Promise<string | Error>} A promise that resolves to the generated OAT or any error given.
- * @throws {TypeError} - If the origin is not a valid string or URL.
+ * @throws {TypeError} If the origin is not a valid string or URL.
  */
 export async function createOriginAuthToken(origin, key, {
 	ttl = TTL,
@@ -68,7 +74,7 @@ export async function createOriginAuthToken(origin, key, {
  * @param {string} [options.audience] - Optional audience (aud) for the JWT.
  * @param {...any} [options] - Any additional data to include in the payload.
  * @returns {Promise<Request>} A promise that resolves to the authenticated request object.
- * @throws {Error} - If there's an error generating the JWT or setting the header.
+ * @throws {Error} If there's an error generating the JWT or setting the header.
  */
 export async function authenticateRequest(req, key, {
 	ttl = TTL,
@@ -91,12 +97,13 @@ export async function authenticateRequest(req, key, {
  * Decodes and validates an origin authentication token (OAT).
  *
  * @param {string} token - The OAT to decode and verify.
+ * @param {string} origin - The origin of the request/token
  * @param {CryptoKey | CryptoKeyPair} key - The key or key pair used for verification.
  * @param {object} options - Optional options for verification.
  * @param {number} [options.leeway] - The allowed clock skew in seconds (default: 60).
  * @param {string[]} [options.entitlements] - Entitlements/permissions required.
  * @returns {Promise<object | Error>} A promise that resolves to the decoded payload or any error given in decoding/verifying.
- * @throws {TypeError} - If `key` is not a `CryptoKey` or `CryptoKeyPair`.
+ * @throws {TypeError} If `key` is not a `CryptoKey` or `CryptoKeyPair`.
  */
 export async function verifyOriginToken(token, origin, key, { entitlements = [], leeway = LEEWAY } = {}) {
 	const payload = await verifyJWT(token, key, { entitlements, leeway, claims: EXPECTED_CLAIMS });
@@ -120,12 +127,12 @@ export async function verifyOriginToken(token, origin, key, { entitlements = [],
  * Decodes and validates the request token from the Authorization header or query string.
  *
  * @param {Request} req - The HTTP request object.
- * @param {CryptoKey | CryptoKeyPair} - The key or key pair to verify the signature against.
+ * @param {CryptoKey | CryptoKeyPair} key - The key or key pair to verify the signature against.
  * @param {object} options - Optional options for verification.
  * @param {number} [options.leeway] - The allowed clock skew in seconds (default: 60).
  * @param {string[]} [options.entitlements] - Entitlements/permissions required.
  * @returns {Promise<object | Error>} A promise that resolves to the validated payload object if valid, an Error of what failed otherwise.
- * @throws {TypeError} - If the provided object is not a Request object or if mandatory headers are missing.
+ * @throws {TypeError} If the provided object is not a Request object or if mandatory headers are missing.
  */
 export async function verifyRequestOriginToken(req, key, { entitlements = [], leeway = LEEWAY } = {}) {
 	if (! (req instanceof Request)) {

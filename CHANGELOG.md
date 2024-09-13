@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.14] - 2024-09-12
+
+### Fixed
+- Fix/update JSDocs documentation
+
 ## [v1.0.13] - 2024-09-12
 
 ### Added
