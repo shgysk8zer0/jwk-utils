@@ -1,6 +1,6 @@
 {
   "name": "@shgysk8zer0/jwk-utils",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "Use JWK and JWTs using the Crypto API",
   "keywords": [
     "jwk",
@@ -81,6 +81,6 @@
     "eslint": "^9.9.1"
   },
   "dependencies": {
-    "@shgysk8zer0/polyfills": "^0.4.1"
+    "@shgysk8zer0/polyfills": "^0.4.3"
   }
 }
