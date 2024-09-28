@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Run `npm audit fix` to fix CVE-2024-43788
+
 ## [v1.0.15] - 2024-09-17
 
 ### Changed
