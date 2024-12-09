@@ -308,9 +308,7 @@ function _checkClaims(claims, payload = {}) {
  * @returns {boolean}
  */
 function _checkRoles(roles, payload) {
-	if (roles.length == 0) {
-		return true;
-	} else if (! Array.isArray(payload.roles)) {
+	if (! Array.isArray(payload.roles)) {
 		return false;
 	} else {
 		return roles.some(role => payload.roles.includes(role));
@@ -404,12 +402,10 @@ export function verifyPayload(payload, {
 		return new Error('Explected claims were not made by token.');
 	} else if (! _checkClaims(checks, payload)) {
 		return new Error('JWT did not pass constraint checks.');
-	} else if (isOwner) {
+	} else if (isOwner || _checkRoles(roles, payload)) {
 		return undefined;
 	} else if (! hasEntitlements(payload, entitlements)) {
 		return new Error('JWT does not have required permissions.');
-	}  else if (! _checkRoles(roles, payload)) {
-		return new Error('JWT does not have any required roles.');
 	}
 }
 

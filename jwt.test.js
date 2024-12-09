@@ -98,26 +98,51 @@ describe('Test JWT functions', { concurrency: true }, async () => {
 		const latitude = 3.1415;
 		const longitude = 2.7818;
 		const user = crypto.randomUUID();
+		const entitlements = ['comment:delete'];
+		const iat = Math.floor(Date.now() / 1000);
+		const exp = iat + 60;
 		const token = await createTestToken({
 			sub: user,
-			roles: ['user'],
+			roles: ['user', 'moderator', 'admin'],
 			jti,
+			entitlements,
+			iat,
+			exp,
 			location: { latitude, longitude },
 		}, privateKey);
 
-		const [invlidRole, invalidJTI, invalidLocation, missingProp, ownerInvalid] = await Promise.all([
-			verifyJWT(token, publicKey, { roles: ['admin'], jti, location: { latitude, longitude } }),
-			verifyJWT(token, publicKey, { roles: ['user'], jti: crypto.randomUUID(), location: { latitude, longitude } }),
-			verifyJWT(token, publicKey, { roles: ['user'], jti: crypto.randomUUID(), location: { latitude: 0, longitude: 0 } }),
-			verifyJWT(token, publicKey, { roles: ['user'], jti, location: { latitude: 0, longitude: 0, dne: true } }),
-			verifyJWT(token, publicKey, { roles: ['user'], sub: user, user, jti, location: { latitude: 0, longitude: 0, dne: true } }),
+		const [invalidJTI, invalidLocation, missingProp, ownerInvalid] = await Promise.all([
+			verifyJWT(token, publicKey, { roles: ['user'], jti: crypto.randomUUID(), entitlements, location: { latitude, longitude } }),
+			verifyJWT(token, publicKey, { roles: ['user'], jti: crypto.randomUUID(), entitlements, location: { latitude: 0, longitude: 0 } }),
+			verifyJWT(token, publicKey, { roles: ['guest'], jti, entitlements, location: { latitude: 0, longitude: 0, dne: true } }),
+			verifyJWT(token, publicKey, { roles: ['guest'], sub: user, user, jti, entitlements, location: { latitude: 0, longitude: 0, dne: true } }),
 		]);
 
-		assert.ok(invlidRole instanceof Error, 'Invalid roles should return an error.');
 		assert.ok(invalidJTI instanceof Error, 'Mismatched `jti` should return an error.');
 		assert.ok(invalidLocation instanceof Error, 'Mismatched `location` should return an error.');
 		assert.ok(missingProp instanceof Error, 'Missing properties should return an error.');
 		assert.ok(ownerInvalid instanceof Error, 'Valid owner with missing claims should still error.');
+	});
+
+	test('Check that `roles` grant permissions correctly', { signal }, async () => {
+		const token = await createTestToken({
+			entitlements: ['db:read'],
+			roles: ['admin', 'manager'],
+		}, privateKey);
+
+		const [allowed, disallowed] = await Promise.all([
+			verifyJWT(token, publicKey, {
+				entitlements: ['db:write'],
+				roles: ['admin'],
+			}),
+			verifyJWT(token, publicKey, {
+				entitlements: ['db:write'],
+				roles: ['guest'],
+			}),
+		]);
+
+		assert.ok(! (allowed instanceof Error), 'Allowed role should bypass `entitlements` check.');
+		assert.ok(disallowed instanceof Error, 'Other roles should not bypass `entitelements` checks.');
 	});
 
 	test('Test refreshing un-expired tokens', { signal }, async () => {
