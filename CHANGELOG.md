@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add support for bypassing role/entitlements check if same owner (`sub` by default)
+- Add support for bypassing `entitlements` check based on `roles`
 - Add function to get current Firebase public key
 
 ### Changed
