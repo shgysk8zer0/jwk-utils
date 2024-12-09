@@ -1,7 +1,61 @@
-import { ALGOS, LEEWAY } from './consts.js';
-import { decodeRequestToken, decodeToken, verifyHeader, verifyPayload } from './jwt.js';
+import { ALGOS, LEEWAY, MIME_TYPE } from './consts.js';
+import { decodeRequestToken, decodeToken, verifyHeader, isVerifiedPayload } from './jwt.js';
 
 const REQUIRED_CLAIMS = ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'];
+
+const ENDPOINT = 'https://www.googleapis.com/robot/v1/metadata/jwk/securetoken@system.gserviceaccount.com';
+
+/**
+ * @type {RequestInit}
+ */
+const INIT = {
+	headers: { Accept: MIME_TYPE },
+	mode: 'cors',
+	referrerPolicy: 'no-referrer',
+};
+
+/**
+ *
+ * @param {RequestInit} fetchInit
+ * @returns {Promise<array>}
+ */
+const getFirebaseKeys = async (fetchInit = INIT) => fetch(ENDPOINT, fetchInit)
+	.then(resp => resp.json()).then(data => data.keys ?? []).catch(() => []);
+
+/**
+ * Fetches a JSON Web Key (JWK) from Google Firebase.
+ *
+ * This function retrieves the JWK set from the Google Firebase metadata endpoint, locates the key with the specified `kty` of RS256, and imports it using the Web Crypto API.
+ *
+ * @property {boolean} [extractable=false] - Whether the imported key is extractable. Defaults to false.
+ * @property {RequestInit} [fetchInit] - (Optional) An object containing options to pass directly to the `fetch` function.
+ *
+ * @returns {Promise<CryptoKey | null>}
+ *  - Resolves to the imported JWK object if the key with the specified `kid` is found.
+ *  - Resolves to `null` if the key is not found.
+ *  - Rejects with an `Error` if there's an error fetching, parsing, or importing the JWK.
+ */
+export async function getFirebasePublicKey(extractable = false, fetchInit = INIT) {
+	try {
+		const keys = await getFirebaseKeys(fetchInit);
+
+		const key = keys.find(key => key.kty === 'RSA');
+
+		if (typeof key === 'object') {
+			return await crypto.subtle.importKey(
+				'jwk',
+				key,
+				ALGOS[key.alg],
+				extractable,
+				['verify'],
+			);
+		} else {
+			return null;
+		}
+	} catch {
+		return null;
+	}
+}
 
 /**
  * Fetches a JSON Web Key (JWK) from Google Firebase for the given key ID (kid).
@@ -17,16 +71,11 @@ const REQUIRED_CLAIMS = ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'e
  *  - Resolves to `null` if the key is not found.
  *  - Rejects with an `Error` if there's an error fetching, parsing, or importing the JWK.
  */
-export async function getFirebaseJWK(kid, extractable = false, fetchInit = {}) {
+export async function getFirebaseJWK(kid, extractable = false, fetchInit = INIT) {
 	try {
-		const resp = await fetch('https://www.googleapis.com/robot/v1/metadata/jwk/securetoken@system.gserviceaccount.com', {
-			headers: { Accept: 'application/json' },
-			...fetchInit,
-		});
+		const keys = await getFirebaseKeys(fetchInit);
 
-		const data = await resp.json() ?? [];
-
-		const key = data.keys.find(key => key.kid === kid);
+		const key = keys.find(key => key.kid === kid);
 
 		if (typeof key === 'object') {
 			return await crypto.subtle.importKey(
@@ -51,14 +100,14 @@ export async function getFirebaseJWK(kid, extractable = false, fetchInit = {}) {
  * @param {RequestInit} fetchInit - (Optional) An object containing options for the fetch request.
  * @returns {Promise<object | null>} A promise that resolves to the validated payload object.
  */
-export async function verifyFirebaseIdToken(token, fetchInit = {}) {
+export async function verifyFirebaseIdToken(token, fetchInit = INIT) {
 	const decoded = decodeToken(token);
 
 	if (decoded instanceof Error) {
 		return decoded;
 	} else if (! verifyHeader(decoded.header) || decoded.header.alg === 'none') {
 		return new Error('Invalid JWT header.');
-	} else if ( ! verifyPayload(decoded.payload)) {
+	} else if ( ! isVerifiedPayload(decoded.payload)) {
 		return new Error('Invalid JWT paylod.');
 	} else if (! ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'].every(prop => prop in decoded.payload)) {
 		return new TypeError('Missing required fields in JWT payload.');
@@ -86,7 +135,7 @@ export async function verifyFirebaseIdToken(token, fetchInit = {}) {
  * @returns {Promise<object | Error>} A promise that resolves to the validated payload object or any error that occurs.
  * @throws {TypeError} If the provided object is not a Request object.
  */
-export async function verifyFirebaseAuthRequestToken(req, fetchInit = {}, { leeway = LEEWAY } = {}) {
+export async function verifyFirebaseAuthRequestToken(req, fetchInit = INIT, { leeway = LEEWAY } = {}) {
 	if (! (req instanceof Request)) {
 		throw new TypeError('Not a request object.');
 	} else {

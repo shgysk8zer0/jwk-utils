@@ -5,7 +5,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { signal } from './signal.test.js';
 
-describe('JWK Utils Tests', async () => {
+describe('JWK Utils Tests', { concurrency: true }, async () => {
 	test('Test request / origin token', { signal }, async () => {
 		const { publicKey, privateKey } = await generateJWK();
 		const req = new Request('https://api.example.com', { headers: { Origin: 'https://example.com' }});

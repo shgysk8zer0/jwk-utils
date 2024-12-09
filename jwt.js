@@ -49,29 +49,29 @@ export function verifyHeader({ typ, alg } = {}) {
 }
 
 /**
- * Verifies the payload of a JWT.
+ * Checks if the payload of a token meets given requirements.
  *
  * @param {object} payload - The payload object to be verified.
- * @param {number} [leeway=60] (optional) - Number of seconds allowed for clock skew, defaults to 60.
+ * @param {object} [options] - Optional options for verification.
+ * @param {number} [options.leeway=60] (optional) - Number of seconds allowed for clock skew, defaults to 60.
+ * @param {string[]} [options.entitlements=[]] - Entitlements/permissions required.
+ * @param {string[]} [options.roles=[]] - Require user have one or more roles
+ * @param {string[]} [options.claims=[]] - Required/expected claims in a payload object.
+ * @param {string|null} [options.owner=null] - Optional owner value to bypass permissions for a resource
+ * @param {string} [options.ownerClaim='sub'] - Optional claim to identify the owner of a resource
  * @param {string[]} [claims=[]] - Expected claims for the payload.
  * @returns {boolean} True if the payload is valid, false otherwise.
  */
-export function verifyPayload(payload, leeway = LEEWAY, claims = []) {
-	const now = Math.floor(Date.now() / 1000);
-
-	if (typeof payload !== 'object' || payload === null) {
-		return false;
-	} else if (typeof payload.iat === 'number' && ! Number.isNaN(payload.iat) && now < (payload.iat - leeway)) {
-		return false;
-	} else if (typeof payload.nbf === 'number' && ! Number.isNaN(payload.nbf) && now < (payload.nbf - leeway)) {
-		return false;
-	} else if (typeof payload.exp === 'number' && ! Number.isNaN(payload.exp) && now > (payload.exp + leeway)) {
-		return false;
-	} else if (claims.length !== 0 && ! claims.every(claim => claim in payload)) {
-		return false;
-	} else {
-		return true;
-	}
+export function isVerifiedPayload(payload, {
+	leeway = LEEWAY,
+	entitlements = [],
+	roles = [],
+	claims = [],
+	owner = null,
+	ownerClaim = 'sub',
+	...checks
+} = {}) {
+	return ! (verifyPayload(payload, { leeway, entitlements, roles, claims, owner, ownerClaim, ...checks }) instanceof Error);
 }
 
 /**
@@ -176,7 +176,7 @@ export async function refreshJWT(token, keys, { issued = new Date(), ttl = 60 } 
 		return decoded;
 	} else if (! verifyHeader(decoded?.header)) {
 		return new Error('Error verifying decoded token header.');
-	} else if (! verifyPayload(decoded?.payload, 60, ['iat', 'exp'])) {
+	} else if (! isVerifiedPayload(decoded?.payload, { leeway: 60, claims: ['iat', 'exp'] })) {
 		return new Error('Error verifying decoded token payload.');
 	} else if (! ['iat', 'exp'].every(claim => claim in decoded.payload)) {
 		return new Error('Cannot renew a token without `iat` and `exp`.');
@@ -216,13 +216,10 @@ export function createUnsecuredJWT(payload) {
  * Decodes a JSON Web Token (JWT) into its constituent parts.
  *
  * @param {string} jwt - The JWT to decode.
- * @param {object} [options] - Optional options
- * @param {string[]} [options.claims=[]] - Required/expected claims in a payload object.
- * @param {number} [options.leeway=60] - The allowed clock skew in seconds (default: 60).
  * @returns {{ header: object, payload: object, signature: Uint8Array, data: Uint8Array } | Error} An object containing the decoded header, payload, signature, and raw data or any error that occured in parsing the token.
  * @throws {TypeError} If the JWT is not a string.
  */
-export function decodeToken(jwt, { claims = [], leeway = LEEWAY } = {}) {
+export function decodeToken(jwt) {
 	if (typeof jwt !== 'string') {
 		throw new TypeError('JWT is not a string.');
 	} else {
@@ -235,8 +232,6 @@ export function decodeToken(jwt, { claims = [], leeway = LEEWAY } = {}) {
 
 				if (! (verifyHeader(decodedHeader))) {
 					return new Error('Invalid JWT header.');
-				} else if (! verifyPayload(decodedPayload, leeway, claims)) {
-					return new Error('Invalid JWT payload.');
 				} else if (decodedHeader.alg === 'none' && signature.length === 0) {
 					const uint = new Uint8Array();
 
@@ -265,18 +260,87 @@ export function decodeToken(jwt, { claims = [], leeway = LEEWAY } = {}) {
 }
 
 /**
+ *
+ * @param {object} claims
+ * @param {object} payload
+ * @returns {boolean}
+ */
+function _checkClaims(claims, payload = {}) {
+	const entries = Object.entries(claims);
+
+	return entries.length === 0 || entries.every(([key, value]) => {
+		if (! payload.hasOwnProperty(key)) {
+			return false;
+		} else if (typeof value === 'function') {
+			return value.call(payload, value);
+		} else if (typeof value !== typeof payload[key]) {
+			return false;
+		} else if (value === payload[key]) {
+			return true;
+		} else {
+			switch(typeof value) {
+				case 'string':
+				case 'number':
+				case 'bigint':
+				case 'undefined':
+					return false; // Already know they are not equal
+
+				case 'object':
+					if (Array.isArray(value)) {
+						return value.every(item => payload[key].includes(item));
+					} else if (value === null) {
+						return false;
+					} else {
+						return Object.entries(value).every(([k, v]) => payload[key][k] === v);
+					}
+
+				default:
+					return false; // What's left? Symbols? Those are not allowed.
+			}
+		}
+	});
+}
+
+/**
+ *
+ * @param {string[]} roles
+ * @param {object} payload
+ * @returns {boolean}
+ */
+function _checkRoles(roles, payload) {
+	if (roles.length == 0) {
+		return true;
+	} else if (! Array.isArray(payload.roles)) {
+		return false;
+	} else {
+		return roles.some(role => payload.roles.includes(role));
+	}
+}
+
+/**
  * Verifies and decodes a JSON Web Token (JWT).
  *
  * @param {string} jwt - The JWT to verify and decode.
- * @param {CryptoKey | CryptoKeyPair} key - The key or key pair used to verify the JWT signature.
+ * @param {CryptoKey|CryptoKeyPair} key - The key or key pair used to verify the JWT signature.
  * @param {object} [options] - Optional options for verification.
- * @param {number} [options.leeway] - The allowed clock skew in seconds (default: 60).
+ * @param {number} [options.leeway=60] - The allowed clock skew in seconds (default: 60).
+ * @param {string[]} [options.entitlements=[]] - Entitlements/permissions required.
+ * @param {string[]} [options.roles=[]] - Require user have one or more roles
  * @param {string[]} [options.claims=[]] - Required/expected claims in a payload object.
- * @param {string[]} [options.entitlements] - Entitlements/permissions required.
- * @returns {Promise<object | Error>} A Promise that resolves to an object containing the decoded header, payload, signature, and raw data if the JWT is valid, or an Error if the JWT is invalid.
+ * @param {string|null} [options.owner=null] - Optional owner value to bypass permissions for a resource
+ * @param {string} [options.ownerClaim='sub'] - Optional claim to identify the owner of a resource
+ * @returns {Promise<object|Error>} A Promise that resolves to an object containing the decoded header, payload, signature, and raw data if the JWT is valid, or an Error if the JWT is invalid.
  * @throws {TypeError} If the given `key` is not a `CryptoKey` or `CryptoKeyPair` with a publicKey.
  */
-export async function verifyJWT(jwt, key, { leeway = LEEWAY, entitlements = [], claims = [] } = {}) {
+export async function verifyJWT(jwt, key, {
+	leeway = LEEWAY,
+	entitlements = [],
+	roles = [],
+	claims = [],
+	owner = null,
+	ownerClaim = 'sub',
+	...checks
+} = {}) {
 	const verifyingKey = getVerifyingKey(key);
 
 	if (typeof jwt !== 'string') {
@@ -284,17 +348,15 @@ export async function verifyJWT(jwt, key, { leeway = LEEWAY, entitlements = [], 
 	} else if (verifyingKey instanceof Error) {
 		throw verifyingKey;
 	} else if (verifyingKey instanceof CryptoKey) {
-		const decoded = decodeToken(jwt, { leeway, claims });
+		const decoded = decodeToken(jwt);
+		const err = decoded instanceof Error ? decoded : verifyPayload(decoded.payload, {
+			leeway, claims, entitlements, roles, owner, ownerClaim, ...checks,
+		});
 
-		if (decoded instanceof Error) {
-			return decoded;
+		if (err instanceof Error) {
+			return err;
 		} else if (decoded.header.alg === 'none') {
 			return new TypeError('JWT is a valid but unsecured token.');
-		} else if (
-			entitlements.length !== 0
-			&& ! hasEntitlements(decoded.payload, entitlements)
-		) {
-			return new Error('JWT does not have required permissions.');
 		} else if (! await verifySignature(decoded, key)) {
 			return new Error('Unable to verify JWT signature.');
 		} else {
@@ -305,6 +367,51 @@ export async function verifyJWT(jwt, key, { leeway = LEEWAY, entitlements = [], 
 	}
 }
 
+/**
+ * Verifies the payload of a JWT, returning any errors
+ *
+ * @param {object} payload
+ * @param {object} [options] - Optional options for verification.
+ * @param {number} [options.leeway=60] - The allowed clock skew in seconds (default: 60).
+ * @param {string[]} [options.entitlements=[]] - Entitlements/permissions required.
+ * @param {string[]} [options.roles=[]] - Require user have one or more roles
+ * @param {string[]} [options.claims=[]] - Required/expected claims in a payload object.
+ * @param {string|null} [options.owner=null] - Optional owner value to bypass permissions for a resource
+ * @param {string} [options.ownerClaim='sub'] - Optional claim to identify the owner of a resource
+ * @returns {Error|void} - Any error in verifying the payload, or `undefined` if none
+ */
+export function verifyPayload(payload, {
+	leeway = LEEWAY,
+	entitlements = [],
+	roles = [],
+	claims = [],
+	owner = null,
+	ownerClaim = 'sub',
+	...checks
+} = {}) {
+	const isOwner = typeof owner === 'string' && typeof payload === 'object' && payload[ownerClaim] === owner;
+	const now = Math.floor(Date.now() / 1000);
+
+	if (typeof payload !== 'object' || payload === null) {
+		return new Error('Payload is not an object.');
+	} else if (typeof payload.iat === 'number' && ! Number.isNaN(payload.iat) && now < (payload.iat - leeway)) {
+		return new Error('Token issued at is invalid.');
+	} else if (typeof payload.nbf === 'number' && ! Number.isNaN(payload.nbf) && now < (payload.nbf - leeway)) {
+		return new Error('Token is not yet valid.');
+	} else if (typeof payload.exp === 'number' && ! Number.isNaN(payload.exp) && now > (payload.exp + leeway)) {
+		return Error('Token is invlalid');
+	} else if (claims.length !== 0 && ! claims.every(claim => claim in payload)) {
+		return new Error('Explected claims were not made by token.');
+	} else if (! _checkClaims(checks, payload)) {
+		return new Error('JWT did not pass constraint checks.');
+	} else if (isOwner) {
+		return undefined;
+	} else if (! hasEntitlements(payload, entitlements)) {
+		return new Error('JWT does not have required permissions.');
+	}  else if (! _checkRoles(roles, payload)) {
+		return new Error('JWT does not have any required roles.');
+	}
+}
 
 /**
  * Extracts the request token from the Authorization header of a request.

@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.17] - 2024-12-09
+
+### Added
+- Add support for bypassing role/entitlements check if same owner (`sub` by default)
+- Add function to get current Firebase public key
+
+### Changed
+- `decodeToken()` now only decodes, without checking claims
+- Update `verifyJWT` to support owner of resource bypassing permissions/roles
+- Tests to pass with recent changes
+- Use `@shgysk8zer0/eslint-config`
+
 ## [v1.0.16] - 2024-09-28
+
 ### Fixed
 - Run `npm audit fix` to fix CVE-2024-43788
 
