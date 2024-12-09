@@ -2,16 +2,16 @@ import '@shgysk8zer0/polyfills';
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
 import { signal } from './signal.test.js';
-import { createJWT, createUnsecuredJWT, decodeToken, decodeRequestToken, verifyHeader, verifyPayload, verifyJWT, verifyRequestToken, refreshJWT } from './jwt.js';
+import { createJWT, createUnsecuredJWT, decodeToken, decodeRequestToken, verifyHeader, verifyPayload, verifyJWT, verifyRequestToken, refreshJWT, isVerifiedPayload } from './jwt.js';
 import { generateJWK } from './jwk.js';
 import { ES256, HS256 } from './consts.js';
 
-describe('Test JWT functions', async () => {
+describe('Test JWT functions', { concurrency: true }, async () => {
 	const now = Math.floor(Date.now() / 1000);
 	const { publicKey, privateKey } = await generateJWK(ES256);
 	const invalidKey = await generateJWK(HS256);
 
-	const createTestToken = async ({ iat = now, entitlements = [], ttl = 60, sub = 'tests' } = {}, key) => {
+	const createTestToken = async ({ iat = now, entitlements = [], ttl = 60, sub = 'tests', ...claims } = {}, key) => {
 		return await createJWT({
 			sub: sub,
 			iat: iat,
@@ -19,6 +19,7 @@ describe('Test JWT functions', async () => {
 			nbf: iat,
 			jti: crypto.randomUUID(),
 			entitlements: entitlements,
+			...claims,
 		}, key);
 	};
 
@@ -34,7 +35,8 @@ describe('Test JWT functions', async () => {
 	test('Returns error when missing claims', { signal }, async () => {
 		const token = await createJWT({ iat: now }, privateKey);
 		const decoded = decodeToken(token, { claims: ['sub'] });
-		assert.ok(decoded instanceof Error, 'Tokens missing expected claims should return an error.');
+		const result = verifyPayload(decoded.payload, { claims: ['sub'] });
+		assert.ok(result instanceof Error, 'Tokens missing expected claims should return an error.');
 	});
 
 	test('Create and verify JWTs', { signal }, async () => {
@@ -49,6 +51,98 @@ describe('Test JWT functions', async () => {
 			assert.notEqual(result, null, 'Verified tokens should not return null.');
 			assert.ok(result?.entitlements?.includes('db:read'), 'Token decodes correctly.');
 		}
+	});
+
+	test('Additional checks on JWTs should pass when valid', { signal }, async () => {
+		const jti = crypto.randomUUID();
+		const latitude = 3.1415;
+		const longitude = 2.7818;
+		const token = await createTestToken({
+			roles: ['admin'],
+			jti,
+			location: { latitude, longitude },
+		}, privateKey);
+
+		const result = await verifyJWT(token, publicKey, { roles: ['admin', 'user'], jti, location: { latitude, longitude }});
+
+		assert.ok(result.jti === jti, 'Token should pass additional tests and return the payload onject.');
+	});
+
+	test('Resource owners should bypass role/entitements checks.', { signal }, async () => {
+		const sub = crypto.randomUUID();
+		const latitude = 3.1415;
+		const longitude = 2.7818;
+
+		const token = await createTestToken({
+			sub,
+			roles: ['admin'],
+			entitlements: ['comment:create'],
+			jti: crypto.randomUUID(),
+			location: { latitude, longitude },
+		}, privateKey);
+
+		const result = await verifyJWT(token, publicKey, {
+			sub,
+			roles: ['user'],
+			entitlements: ['comment:delete'],
+			claims: ['jti', 'sub', 'roles', 'entitlements'],
+			owner: sub,
+			location: { latitude, longitude },
+		});
+
+		assert.ok(! (result instanceof Error), 'Resource owners should bypass permission checks.');
+	});
+
+	test('Additional checks on JWTs should fail when invalid', { signal }, async () => {
+		const jti = crypto.randomUUID();
+		const latitude = 3.1415;
+		const longitude = 2.7818;
+		const user = crypto.randomUUID();
+		const entitlements = ['comment:delete'];
+		const iat = Math.floor(Date.now() / 1000);
+		const exp = iat + 60;
+		const token = await createTestToken({
+			sub: user,
+			roles: ['user', 'moderator', 'admin'],
+			jti,
+			entitlements,
+			iat,
+			exp,
+			location: { latitude, longitude },
+		}, privateKey);
+
+		const [invalidJTI, invalidLocation, missingProp, ownerInvalid] = await Promise.all([
+			verifyJWT(token, publicKey, { roles: ['user'], jti: crypto.randomUUID(), entitlements, location: { latitude, longitude } }),
+			verifyJWT(token, publicKey, { roles: ['user'], jti: crypto.randomUUID(), entitlements, location: { latitude: 0, longitude: 0 } }),
+			verifyJWT(token, publicKey, { roles: ['guest'], jti, entitlements, location: { latitude: 0, longitude: 0, dne: true } }),
+			verifyJWT(token, publicKey, { roles: ['guest'], sub: user, user, jti, entitlements, location: { latitude: 0, longitude: 0, dne: true } }),
+		]);
+
+		assert.ok(invalidJTI instanceof Error, 'Mismatched `jti` should return an error.');
+		assert.ok(invalidLocation instanceof Error, 'Mismatched `location` should return an error.');
+		assert.ok(missingProp instanceof Error, 'Missing properties should return an error.');
+		assert.ok(ownerInvalid instanceof Error, 'Valid owner with missing claims should still error.');
+	});
+
+	test('Check that `roles` grant permissions correctly', { signal }, async () => {
+		const token = await createTestToken({
+			entitlements: ['db:read'],
+			roles: ['admin', 'manager'],
+		}, privateKey);
+
+		const [allowed, disallowed] = await Promise.all([
+			verifyJWT(token, publicKey, {
+				entitlements: ['db:write'],
+				roles: ['admin'],
+			}),
+			verifyJWT(token, publicKey, {
+				entitlements: ['db:write'],
+				roles: ['guest'],
+			}),
+		]);
+
+		assert.ok(! (allowed instanceof Error), 'Allowed role should bypass `entitlements` check.');
+		assert.ok(disallowed instanceof Error, 'Other roles should not bypass `entitelements` checks.');
 	});
 
 	test('Test refreshing un-expired tokens', { signal }, async () => {
@@ -88,7 +182,9 @@ describe('Test JWT functions', async () => {
 	});
 
 	test('Test invalid JWTs', { signal }, async () => {
-		const result = await verifyJWT('dfjhgdhbfgkdfg.dfdjgkdfgk.dfjhgjf', publicKey);
+		const token = await createTestToken();
+		const result = await verifyJWT(token + 'a', publicKey);
+
 		assert.ok(result instanceof Error, 'Invalid tokens should return an error.');
 	});
 
@@ -121,7 +217,7 @@ describe('Test JWT functions', async () => {
 
 		assert.ok(typeof token === 'string', 'Generated token should be a string');
 		assert.ok(verifyHeader(decoded?.header), 'Decoded token header should be valid');
-		assert.ok(verifyPayload(decoded?.payload), 'Decoded token payload should be valid');
+		assert.ok(isVerifiedPayload(decoded?.payload), 'Decoded token payload should be valid');
 		assert.notEqual(decoded, null, 'Decoded tokens should not return null.');
 	});
 });
