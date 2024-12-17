@@ -1,6 +1,6 @@
 {
   "name": "@shgysk8zer0/jwk-utils",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "Use JWK and JWTs using the Crypto API",
   "keywords": [
     "jwk",

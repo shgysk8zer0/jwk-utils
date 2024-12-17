@@ -1,4 +1,4 @@
-import { ALGOS, LEEWAY, MIME_TYPE } from './consts.js';
+import { ALGOS, LEEWAY, FETCH_INIT } from './consts.js';
 import { decodeRequestToken, decodeToken, verifyHeader, isVerifiedPayload } from './jwt.js';
 
 const REQUIRED_CLAIMS = ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'];
@@ -6,20 +6,11 @@ const REQUIRED_CLAIMS = ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'e
 const ENDPOINT = 'https://www.googleapis.com/robot/v1/metadata/jwk/securetoken@system.gserviceaccount.com';
 
 /**
- * @type {RequestInit}
- */
-const INIT = {
-	headers: { Accept: MIME_TYPE },
-	mode: 'cors',
-	referrerPolicy: 'no-referrer',
-};
-
-/**
  *
  * @param {RequestInit} fetchInit
  * @returns {Promise<array>}
  */
-const getFirebaseKeys = async (fetchInit = INIT) => fetch(ENDPOINT, fetchInit)
+const getFirebaseKeys = async (fetchInit = FETCH_INIT) => fetch(ENDPOINT, fetchInit)
 	.then(resp => resp.json()).then(data => data.keys ?? []).catch(() => []);
 
 /**
@@ -35,7 +26,7 @@ const getFirebaseKeys = async (fetchInit = INIT) => fetch(ENDPOINT, fetchInit)
  *  - Resolves to `null` if the key is not found.
  *  - Rejects with an `Error` if there's an error fetching, parsing, or importing the JWK.
  */
-export async function getFirebasePublicKey(extractable = false, fetchInit = INIT) {
+export async function getFirebasePublicKey(extractable = false, fetchInit = FETCH_INIT) {
 	try {
 		const keys = await getFirebaseKeys(fetchInit);
 
@@ -71,7 +62,7 @@ export async function getFirebasePublicKey(extractable = false, fetchInit = INIT
  *  - Resolves to `null` if the key is not found.
  *  - Rejects with an `Error` if there's an error fetching, parsing, or importing the JWK.
  */
-export async function getFirebaseJWK(kid, extractable = false, fetchInit = INIT) {
+export async function getFirebaseJWK(kid, extractable = false, fetchInit = FETCH_INIT) {
 	try {
 		const keys = await getFirebaseKeys(fetchInit);
 
@@ -100,7 +91,7 @@ export async function getFirebaseJWK(kid, extractable = false, fetchInit = INIT)
  * @param {RequestInit} fetchInit - (Optional) An object containing options for the fetch request.
  * @returns {Promise<object | null>} A promise that resolves to the validated payload object.
  */
-export async function verifyFirebaseIdToken(token, fetchInit = INIT) {
+export async function verifyFirebaseIdToken(token, fetchInit = FETCH_INIT) {
 	const decoded = decodeToken(token);
 
 	if (decoded instanceof Error) {
@@ -135,7 +126,7 @@ export async function verifyFirebaseIdToken(token, fetchInit = INIT) {
  * @returns {Promise<object | Error>} A promise that resolves to the validated payload object or any error that occurs.
  * @throws {TypeError} If the provided object is not a Request object.
  */
-export async function verifyFirebaseAuthRequestToken(req, fetchInit = INIT, { leeway = LEEWAY } = {}) {
+export async function verifyFirebaseAuthRequestToken(req, fetchInit = FETCH_INIT, { leeway = LEEWAY } = {}) {
 	if (! (req instanceof Request)) {
 		throw new TypeError('Not a request object.');
 	} else {
