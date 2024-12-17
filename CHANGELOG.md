@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.18] - 2024-12-17
+
+### Added
+- Add function to fetch & import key(s) from `.well-known/jwks.json`
+- Add function to verify JWTs by issuer (`iss`) using key from `.well-known/jwks.json`
+
 ## [v1.0.17] - 2024-12-09
 
 ### Added

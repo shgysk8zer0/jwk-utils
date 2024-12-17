@@ -30,6 +30,15 @@ export const SHA512 = 'SHA-512';
 export const PUBLIC_EXPONENT = new Uint8Array([1, 0, 1]);
 
 /**
+ * @type {RequestInit}
+ */
+export const FETCH_INIT = {
+	headers: { Accept: MIME_TYPE },
+	mode: 'cors',
+	referrerPolicy: 'no-referrer',
+};
+
+/**
  * A mapping of algorithm names to their corresponding cryptographic parameters.
  *
  * @type {object}
@@ -119,3 +128,5 @@ export const ALGOS = {
 		namedCurve: 'Ed25519',
 	},
 };
+
+export const SUPPORTED_ALGOS = Object.keys(ALGOS);

@@ -1,4 +1,5 @@
 import { ALPHABET as alphabet, ALGOS, AUTH, LEEWAY } from './consts.js';
+import { fetchWellKnownKey } from './jwk.js';
 import { findKeyAlgo, getKeyId } from './utils.js';
 
 const encoder = new TextEncoder();
@@ -362,6 +363,57 @@ export async function verifyJWT(jwt, key, {
 		}
 	} else {
 		throw new TypeError('Key must be either a CryptoKey or CryptoKeyPair.');
+	}
+}
+
+/**
+ * Verifies and decodes a JSON Web Token (JWT) using key from issuer via `.well-known/jwks.json`.
+ *
+ * @param {string} jwt - The JWT to verify and decode using a remote JWK from a `.well-known/jwks.json`.
+ * @param {object} [options] - Optional options for verification.
+ * @param {number} [options.leeway=60] - The allowed clock skew in seconds (default: 60).
+ * @param {string[]} [options.entitlements=[]] - Entitlements/permissions required.
+ * @param {string[]} [options.roles=[]] - Require user have one or more roles
+ * @param {string[]} [options.claims=[]] - Required/expected claims in a payload object.
+ * @param {string|null} [options.owner=null] - Optional owner value to bypass permissions for a resource
+ * @param {string} [options.ownerClaim='sub'] - Optional claim to identify the owner of a resource
+ * @returns {Promise<object|Error>} A Promise that resolves to an object containing the decoded header, payload, signature, and raw data if the JWT is valid, or an Error if the JWT is invalid.
+ */
+export async function verifyJWTWithIssuerKey(jwt, {
+	leeway = LEEWAY,
+	entitlements = [],
+	roles = [],
+	claims = [],
+	owner = null,
+	ownerClaim = 'sub',
+	...checks
+} = {}) {
+	if (typeof jwt !== 'string') {
+		throw new TypeError('JWT must be a token/string.');
+	} else {
+		const decoded = decodeToken(jwt);
+
+		if (decoded instanceof Error) {
+			return decoded;
+		} else if (! ('iss' in decoded.payload)) {
+			return new TypeError('JWT does not have an issuer.');
+		} else {
+			const key = await fetchWellKnownKey(decoded.payload.iss);
+
+			const err = decoded instanceof Error ? decoded : verifyPayload(decoded.payload, {
+				leeway, claims, entitlements, roles, owner, ownerClaim, ...checks,
+			});
+
+			if (err instanceof Error) {
+				return err;
+			} else if (decoded.header.alg === 'none') {
+				return new TypeError('JWT is a valid but unsecured token.');
+			} else if (! await verifySignature(decoded, key)) {
+				return new Error('Unable to verify JWT signature.');
+			} else {
+				return decoded.payload;
+			}
+		}
 	}
 }
 

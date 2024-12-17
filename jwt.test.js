@@ -2,7 +2,10 @@ import '@shgysk8zer0/polyfills';
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
 import { signal } from './signal.test.js';
-import { createJWT, createUnsecuredJWT, decodeToken, decodeRequestToken, verifyHeader, verifyPayload, verifyJWT, verifyRequestToken, refreshJWT, isVerifiedPayload } from './jwt.js';
+import {
+	createJWT, createUnsecuredJWT, decodeToken, decodeRequestToken, verifyHeader, verifyPayload, verifyJWT,
+	verifyRequestToken, refreshJWT, isVerifiedPayload,
+} from './jwt.js';
 import { generateJWK } from './jwk.js';
 import { ES256, HS256 } from './consts.js';
 

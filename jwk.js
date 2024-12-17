@@ -1,4 +1,4 @@
-import { MIME_TYPE, DEFAULT_ALGO, ALGOS, HS256 } from './consts.js';
+import { MIME_TYPE, DEFAULT_ALGO, ALGOS, HS256, FETCH_INIT, SUPPORTED_ALGOS } from './consts.js';
 import { findKeyAlgo } from './utils.js';
 
 /**
@@ -19,7 +19,7 @@ export async function generateJWKPair(algo = DEFAULT_ALGO) {
  *
  * @param {string} [algo='ES256'] - The algorithm to use for the JWK pair. Defaults to `"ES256"`.
  * @param {object} [options] - Optional options for the token creation.
- * @param {boolean} [extractabl=true] - Whether or not the key may be extracted/exported.
+ * @param {boolean} [extractable=true] - Whether or not the key may be extracted/exported.
  * @returns {Promise<CryptoKeyPair | CryptoKey>} A promise that resolves to the generated JWK pair.
  * @throws {Error} If there's an error generating the JWK pair.
  */
@@ -29,6 +29,56 @@ export async function generateJWK(algo = DEFAULT_ALGO, { extractable = true } = 
 		extractable,
 		['sign', 'verify']
 	);
+}
+
+/**
+ * Fetch an array of keys from a `.well-known/jwks.json`
+ *
+ * @param {string} origin The origin to fetch the JWKS from (e.g., 'https://example.com').
+ * @param {RequestInit} [fetchInit] Optional fetch initialization options.
+ * @returns {Promise<object[]>} An array of key objects, or an empty array if an error occurs or no keys are found.
+ */
+export async function fetchWellKnownKeys(origin, fetchInit = FETCH_INIT) {
+	const url = new URL('/.well-known/jwks.json', origin);
+	const resp = await fetch(url, fetchInit);
+
+	if (resp.ok) {
+		return await resp.json()
+			.then(data => Array.isArray(data?.keys) ? data.keys : [])
+			.catch(() => []);
+	} else {
+		return [];
+	}
+}
+
+/**
+ * Fetch and import a public key from a `.well-known/jwks.json` URL
+ *
+ * @param {string} origin The origin to fetch the JWKS from (e.g., 'https://example.com').
+ * @param {RequestInit} [fetchInit=FETCH_INIT] Optional fetch initialization options.
+ * @param {boolean} [extractable=false] Whether the imported key should be extractable.
+ * @returns {Promise<CryptoKey|null>} A  CryptoKey object if a suitable key is found and imported, or null otherwise.
+ */
+export async function fetchWellKnownKey(origin, fetchInit = FETCH_INIT, extractable = false) {
+	const keys = await fetchWellKnownKeys(origin, fetchInit);
+
+	if (keys.length !== 0) {
+		const key = keys.find(key => key.use === 'sig' && SUPPORTED_ALGOS.includes(key.alg));
+
+		if (typeof key === 'object') {
+			return await crypto.subtle.importKey(
+				'jwk',
+				key,
+				ALGOS[key.alg],
+				extractable,
+				['verify'],
+			).catch(() => null);
+		} else {
+			return null;
+		}
+	} else {
+		return null;
+	}
 }
 
 /**
