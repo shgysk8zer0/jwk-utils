@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [v1.0.19]
+## [v1.0.20] - 2024-12-20
+
+### Fixed
+- Fixed generating `kid` to match what's using in `jwt.header.kid` in `exportAsRFC7517JWK()`
+
+## [v1.0.19] - 2024-12-20
 
 ### Added
 - Add support for RFC7517 imports and exports of keys
