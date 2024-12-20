@@ -1,4 +1,5 @@
 import { ALGOS, LEEWAY, FETCH_INIT } from './consts.js';
+import { importRFC7517JWK } from './jwk.js';
 import { decodeRequestToken, decodeToken, verifyHeader, isVerifiedPayload } from './jwt.js';
 
 const REQUIRED_CLAIMS = ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'email'];
@@ -6,12 +7,13 @@ const REQUIRED_CLAIMS = ['name', 'auth_time', 'iss', 'user_id', 'iat', 'exp', 'e
 const ENDPOINT = 'https://www.googleapis.com/robot/v1/metadata/jwk/securetoken@system.gserviceaccount.com';
 
 /**
+ * Fetches the JSON Web Key (JWK) set from Google Firebase.
  *
- * @param {RequestInit} fetchInit
- * @returns {Promise<array>}
+ * @param {RequestInit} fetchInit - (Optional) An object containing options to pass directly to
+ * @returns {Promise<object[]>} A promise that resolves to an array of JWK objects.
  */
 const getFirebaseKeys = async (fetchInit = FETCH_INIT) => fetch(ENDPOINT, fetchInit)
-	.then(resp => resp.json()).then(data => data.keys ?? []).catch(() => []);
+	.then(resp => resp.json()).then(data => Array.isArray(data.keys) ? data.keys : []).catch(() => []);
 
 /**
  * Fetches a JSON Web Key (JWK) from Google Firebase.
@@ -32,17 +34,7 @@ export async function getFirebasePublicKey(extractable = false, fetchInit = FETC
 
 		const key = keys.find(key => key.kty === 'RSA');
 
-		if (typeof key === 'object') {
-			return await crypto.subtle.importKey(
-				'jwk',
-				key,
-				ALGOS[key.alg],
-				extractable,
-				['verify'],
-			);
-		} else {
-			return null;
-		}
+		return await importRFC7517JWK(key, extractable);
 	} catch {
 		return null;
 	}

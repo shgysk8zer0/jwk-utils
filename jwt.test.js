@@ -14,16 +14,16 @@ describe('Test JWT functions', { concurrency: true }, async () => {
 	const { publicKey, privateKey } = await generateJWK(ES256);
 	const invalidKey = await generateJWK(HS256);
 
-	const createTestToken = async ({ iat = now, entitlements = [], ttl = 60, sub = 'tests', ...claims } = {}, key) => {
-		return await createJWT({
-			sub: sub,
-			iat: iat,
-			exp: iat + ttl,
-			nbf: iat,
-			jti: crypto.randomUUID(),
-			entitlements: entitlements,
-			...claims,
-		}, key);
+	const createTestToken = async ({
+		iss = import.meta.url,
+		sub = 'tests',
+		jti = crypto.randomUUID(),
+		iat = now,
+		entitlements = [],
+		ttl = 60,
+		...claims
+	} = {}, key) => {
+		return await createJWT({ iss, sub, iat, exp: iat + ttl, nbf: iat, jti, entitlements: entitlements, ...claims, }, key);
 	};
 
 	test('Decodes token from request', { signal }, async () => {
@@ -222,5 +222,24 @@ describe('Test JWT functions', { concurrency: true }, async () => {
 		assert.ok(verifyHeader(decoded?.header), 'Decoded token header should be valid');
 		assert.ok(isVerifiedPayload(decoded?.payload), 'Decoded token payload should be valid');
 		assert.notEqual(decoded, null, 'Decoded tokens should not return null.');
+	});
+
+	test('Check passing `Date`s in JWT claims', { signal }, async () => {
+		const iat = new Date();
+		const token = await createJWT({
+			iss: import.meta.url,
+			jti: crypto.randomUUID(),
+			iat: new Date(),
+			nbf: iat,
+			exp: new Date(iat.getTime() + 60_000),
+		}, privateKey);
+
+		const result = await verifyJWT(token, publicKey);
+		assert.strictEqual(typeof result.iat, 'number', 'Dates should be converted to numbers');
+		assert.strictEqual(typeof result.nbf, 'number', 'Dates should be converted to numbers');
+		assert.strictEqual(typeof result.exp, 'number', 'Dates should be converted to numbers');
+		assert.strictEqual(result.iat, Math.floor(iat.getTime() / 1000), 'Dates should be converted to Unix timestamps');
+		assert.strictEqual(result.nbf, Math.floor(iat.getTime() / 1000), 'Dates should be converted to Unix timestamps');
+		assert.strictEqual(result.exp, Math.floor(iat.getTime() / 1000) + 60, 'Dates should be converted to Unix timestamps');
 	});
 });

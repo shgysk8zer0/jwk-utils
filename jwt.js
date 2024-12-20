@@ -1,3 +1,4 @@
+
 import { ALPHABET as alphabet, ALGOS, AUTH, LEEWAY } from './consts.js';
 import { fetchWellKnownKey } from './jwk.js';
 import { findKeyAlgo, getKeyId } from './utils.js';
@@ -5,11 +6,13 @@ import { findKeyAlgo, getKeyId } from './utils.js';
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8');
 
+const _dateToSeconds = date => Math.floor(date.getTime() / 1000);
+
 /**
  * Gets the key valid for signing from a `CryptoKey` or `CryptoKeyPair`.
  *
- * @param {CryptoKey | CryptoKeyPair} keys - Key or key pair to find signing key in.
- * @returns {CryptoKey | Error} CryptoKey with "sign" usage if found or error if not found.
+ * @param {CryptoKey|CryptoKeyPair} keys - Key or key pair to find signing key in.
+ * @returns {CryptoKey|Error} CryptoKey with "sign" usage if found or error if not found.
  */
 export function getSigningKey(keys) {
 	if (keys instanceof CryptoKey && keys.usages.includes('sign')) {
@@ -24,8 +27,8 @@ export function getSigningKey(keys) {
 /**
  * Gets the key valid for verifying from a `CryptoKey` or `CryptoKeyPair`.
  *
- * @param {CryptoKey | CryptoKeyPair} keys - Key or key pair to find verifying key in.
- * @returns {CryptoKey | Error} CryptoKey with "verify" usage if found or error if not found.
+ * @param {CryptoKey|CryptoKeyPair} keys - Key or key pair to find verifying key in.
+ * @returns {CryptoKey|Error} CryptoKey with "verify" usage if found or error if not found.
  */
 export function getVerifyingKey(keys) {
 	if (keys instanceof CryptoKey && keys.usages.includes('verify')) {
@@ -103,12 +106,7 @@ export async function verifySignature({ header, signature, data }, key) {
 	} else if (! key.usages.includes('verify')) {
 		throw new TypeError('Key does not include "verify" in usages.');
 	} else {
-		return await crypto.subtle.verify(
-			ALGOS[header?.alg],
-			key,
-			signature,
-			data,
-		).catch(() => false);
+		return await crypto.subtle.verify(ALGOS[header?.alg], key, signature, data,).catch(() => false);
 	}
 }
 
@@ -116,7 +114,7 @@ export async function verifySignature({ header, signature, data }, key) {
  * Generates a JSON Web Token (JWT) using the provided payload and private key.
  *
  * @param {object} payload - The payload data to include in the JWT.
- * @param {CryptoKey | CryptoKeyPair} key - The private/secret key or key pair used to sign the JWT.
+ * @param {CryptoKey|CryptoKeyPair} key - The private/secret key or key pair used to sign the JWT.
  * @returns {Promise<string>} A promise that resolves to the generated JWT.
  * @throws {TypeError} If the key is not a CryptoKey/CryptoKeyPair or if it lacks "sign" in usages.
  * @throws {Error} If there's an error generating the JWT.
@@ -132,6 +130,13 @@ export async function createJWT(payload, key) {
 		if (! key.usages.includes('sign')) {
 			throw new TypeError('Key usages do not include "sign".');
 		} else if (typeof name === 'string') {
+			// Convert any dates to seconds for JWT
+			['iat', 'exp', 'nbf'].forEach(claim => {
+				if (payload[claim] instanceof Date) {
+					payload[claim] = _dateToSeconds(payload[claim]);
+				}
+			});
+
 			const encodedHeader = encoder.encode(JSON.stringify({ alg: name, kid: await getKeyId(key), typ: 'JWT' })).toBase64({ alphabet }).replaceAll('=', '');
 			const encodedPayload = encoder.encode(JSON.stringify(payload)).toBase64({ alphabet }).replaceAll('=', '');
 			const signature = await crypto.subtle.sign(
@@ -152,7 +157,7 @@ export async function createJWT(payload, key) {
  * and re-signing it using the provided keys.
  *
  * @param {string} token - The existing JWT to be refreshed.
- * @param {CryptoKey | CryptoKeyPair} keys - The key or key pair used for signing and verifying the JWT.
+ * @param {CryptoKey|CryptoKeyPair} keys - The key or key pair used for signing and verifying the JWT.
  * @param {Object} [options] - Optional parameters.
  * @param {Date} [options.issued=new Date()] - The date when the new token is issued (used for the `iat` claim).
  * @param {number} [options.ttl=60] - Time-to-live for the token, in seconds, used to set the `exp` claim.
@@ -217,7 +222,7 @@ export function createUnsecuredJWT(payload) {
  * Decodes a JSON Web Token (JWT) into its constituent parts.
  *
  * @param {string} jwt - The JWT to decode.
- * @returns {{ header: object, payload: object, signature: Uint8Array, data: Uint8Array } | Error} An object containing the decoded header, payload, signature, and raw data or any error that occured in parsing the token.
+ * @returns {{ header: object, payload: object, signature: Uint8Array, data: Uint8Array }|Error} An object containing the decoded header, payload, signature, and raw data or any error that occured in parsing the token.
  * @throws {TypeError} If the JWT is not a string.
  */
 export function decodeToken(jwt) {
@@ -261,10 +266,11 @@ export function decodeToken(jwt) {
 }
 
 /**
+ * Verifies and decodes a JSON Web Token (JWT).
  *
- * @param {object} claims
- * @param {object} payload
- * @returns {boolean}
+ * @param {object} claims - The claims to check for in the payload.
+ * @param {object} payload - The payload to check against the claims.
+ * @returns {boolean} Whether or not the payload meets the given claims.
  */
 function _checkClaims(claims, payload = {}) {
 	const entries = Object.entries(claims);
@@ -273,7 +279,7 @@ function _checkClaims(claims, payload = {}) {
 		if (! payload.hasOwnProperty(key)) {
 			return false;
 		} else if (typeof value === 'function') {
-			return value.call(payload, value);
+			return value.call(value, payload[key], payload);
 		} else if (typeof value !== typeof payload[key]) {
 			return false;
 		} else if (value === payload[key]) {
@@ -303,10 +309,11 @@ function _checkClaims(claims, payload = {}) {
 }
 
 /**
+ * Checks if the payload has one or more of the given roles.
  *
- * @param {string[]} roles
- * @param {object} payload
- * @returns {boolean}
+ * @param {string[]} roles - The roles to check for in the payload.
+ * @param {object} payload - The payload to check against the roles.
+ * @returns {boolean} Whether or not the payload has one or more of the given roles.
  */
 function _checkRoles(roles, payload) {
 	if (! Array.isArray(payload.roles)) {
@@ -465,7 +472,7 @@ export function verifyPayload(payload, {
  * Extracts the request token from the Authorization header of a request.
  *
  * @param {Request} req - The HTTP request object.
- * @returns {string | null} The request token if found, null if Authorization header is missing or invalid.
+ * @returns {string|null} The request token if found, null if Authorization header is missing or invalid.
  * @throws {TypeError} If the provided object is not a Request object.
  */
 export function getRequestToken(req) {
@@ -489,7 +496,7 @@ export function getRequestToken(req) {
  * @param {object} [options] - Optional options for verification.
  * @param {number} [options.leeway] - The allowed clock skew in seconds (default: 60).
  * @param {string[]} [options.claims=[]] - Required/expected claims in a payload object.
- * @returns {object | Error} The decoded token object if valid, Error if there was a problem decoding the token.
+ * @returns {object|Error} The decoded token object if valid, Error if there was a problem decoding the token.
  * @throws {TypeError} If the provided object is not a Request object.
  */
 export function decodeRequestToken(req, { claims = [], leeway = LEEWAY } = {}) {
@@ -501,12 +508,12 @@ export function decodeRequestToken(req, { claims = [], leeway = LEEWAY } = {}) {
  * Decodes and verifies the request token from the Authorization header or `token` param.
  *
  * @param {Request} req - The HTTP request object.
- * @param {CryptoKey | CryptoKeyPair} key - The key or key pair used to verify the JWT signature.
+ * @param {CryptoKey|CryptoKeyPair} key - The key or key pair used to verify the JWT signature.
  * @param {object} [options] - Optional options for verification.
  * @param {number} [options.leeway] - The allowed clock skew in seconds (default: 60).
  * @param {string[]} [options.claims=[]] - Required/expected claims in a payload object.
  * @param {string[]} [options.entitlements=[]] - Entitlements/permissions required.
- * @returns {Promise<object | Error>} The decoded token payload if valid, Error if there was a problem decoding the token.
+ * @returns {Promise<object|Error>} The decoded token payload if valid, Error if there was a problem decoding the token.
  * @throws {TypeError} If the provided object is not a Request object.
  */
 export async function verifyRequestToken(req, key, { leeway = LEEWAY, claims = [], entitlements = [] } = {}) {

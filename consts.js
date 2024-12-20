@@ -27,7 +27,13 @@ export const SHA256 = 'SHA-256';
 export const SHA384 = 'SHA-384';
 export const SHA512 = 'SHA-512';
 
-export const PUBLIC_EXPONENT = new Uint8Array([1, 0, 1]);
+export const SIGN_USAGE = ['sign', 'verify'];
+export const WRAP_USAGE = ['wrapKey', 'unwrapKey'];
+export const DERIVE_USAGE = ['deriveKey', 'deriveBits'];
+export const ENCRYPT_USAGE = ['encrypt', 'decrypt'];
+export const DEFAULT_USAGE = SIGN_USAGE;
+
+export const PUBLIC_EXPONENT = new Uint8Array([1, 0, 1]); // 65537
 
 /**
  * @type {RequestInit}
