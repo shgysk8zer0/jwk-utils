@@ -6,6 +6,7 @@ import {
 	loadJWKFromBlob, fetchJWK, importJWK, exportJWK, exportAsRFC7517JWK,
 	importRFC7517JWK,
 } from './jwk.js';
+import { createJWT, decodeToken, verifySignature } from './jwt.js';
 import { ES256, HS256 } from './consts.js';
 import { signal } from './signal.test.js';
 import { ALGOS } from './consts.js';
@@ -50,16 +51,26 @@ describe('Test JWK/key functions', { concurrency: true }, async () => {
 	});
 
 	test('Import and export RFC7517 JWK', { signal }, async () => {
-		const { publicKey } = await generateJWK(ES256, { extractable: true });
-		const exported = await exportAsRFC7517JWK(publicKey);
+		const keys = await generateJWK(ES256, { extractable: true });
+		const exported = await exportAsRFC7517JWK(keys);
 		const imported = await importRFC7517JWK(exported);
 
 		assert.ok(imported instanceof CryptoKey, 'Imported key should be a `CryptoKey`');
 		assert.ok(['kty', 'kid', 'alg', 'use', 'key_ops', 'use', 'crv', 'x', 'y']
 			.every(prop => prop in exported), 'Exported JWK should have expected properties');
 
-		assert.deepStrictEqual(imported.algorithm, publicKey.algorithm, 'Imported key should have the same algorithm as the original');
-		assert.deepStrictEqual(imported.usages, publicKey.usages, 'Imported key should have the same usages as the original');
+		assert.deepStrictEqual(imported.algorithm, keys.publicKey.algorithm, 'Imported key should have the same algorithm as the original');
+		assert.deepStrictEqual(imported.usages, keys.publicKey.usages, 'Imported key should have the same usages as the original');
+
+		const jwt = await createJWT({ iat: new Date() }, keys.privateKey);
+		const decoded = decodeToken(jwt);
+
+		if (decoded instanceof Error) {
+			assert.fail(decoded);
+		} else {
+			assert.strictEqual(decoded.header.kid, exported.kid, 'Imported key should have the same `kid` as the exported key');
+			assert.ok(await verifySignature(decoded, imported), 'Signature should be valid');
+		}
 	});
 
 	test('Key generated is a `CryptoKey`.', { signal }, () => assert.ok(key instanceof CryptoKey, 'Generated key should be a `CryptoKey'));

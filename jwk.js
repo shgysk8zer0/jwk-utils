@@ -1,5 +1,5 @@
 import { MIME_TYPE, DEFAULT_ALGO, ALGOS, HS256, FETCH_INIT, SUPPORTED_ALGOS, SIGN_USAGE, SHA256 } from './consts.js';
-import { findKeyAlgo } from './utils.js';
+import { findKeyAlgo, getKeyId } from './utils.js';
 
 /**
  * Generates a new JSON Web Key (JWK) pair with the specified algorithm.
@@ -101,7 +101,7 @@ export async function importRFC7517JWK(keyObj, extractable = false) {
  * @param {HashAlgorithmIdentifier} [options.hash='SHA-256'] The hash algorithm to use for the key ID.
  * @returns {Promise<object|null>} The exported JWK or null if there were any errors.
  */
-export async function exportAsRFC7517JWK(key, { hash = SHA256 } = {}) {
+export async function exportAsRFC7517JWK(key, { hash = SHA256, kid } = {}) {
 	if (key instanceof CryptoKey) {
 		const data = await crypto.subtle.exportKey('jwk', key);
 		const { kty, key_ops, ...rest } = data;
@@ -110,13 +110,17 @@ export async function exportAsRFC7517JWK(key, { hash = SHA256 } = {}) {
 		return {
 			kty: kty,
 			alg: findKeyAlgo(data)[0],
-			kid: new Uint8Array(await crypto.subtle.digest(hash, new TextEncoder().encode(JSON.stringify(data)))).toHex(),
+			kid,
 			use: key_ops.includes('verify') ? 'sig' : 'enc',
 			key_ops,
 			...rest
 		};
 	} else if (typeof key === 'object' && key?.publicKey instanceof CryptoKey) {
-		return await exportAsRFC7517JWK(key.publicKey, { hash });
+		if (typeof kid !== 'string' && key.privateKey instanceof CryptoKey) {
+			return await exportAsRFC7517JWK(key.publicKey, { hash, kid: await getKeyId(key.privateKey, { hash }) });
+		} else {
+			return await exportAsRFC7517JWK(key.publicKey, { hash, kid });
+		}
 	} else {
 		return null;
 	}
