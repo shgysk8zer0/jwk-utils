@@ -1,8 +1,12 @@
 import '@shgysk8zer0/polyfills';
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
-import { generateJWK, base64EncodeJWK, importJWKFromBase64, importRawKey, createJWKFile, loadJWKFromBlob, fetchJWK, importJWK, exportJWK } from './jwk.js';
-import { HS256 } from './consts.js';
+import {
+	generateJWK, base64EncodeJWK, importJWKFromBase64, importRawKey, createJWKFile,
+	loadJWKFromBlob, fetchJWK, importJWK, exportJWK, exportAsRFC7517JWK,
+	importRFC7517JWK,
+} from './jwk.js';
+import { ES256, HS256 } from './consts.js';
 import { signal } from './signal.test.js';
 import { ALGOS } from './consts.js';
 
@@ -10,7 +14,7 @@ const algos = Object.keys(ALGOS);
 
 // Make concurrent due to extensive async keygen operations
 describe('Test JWK/key functions', { concurrency: true }, async () => {
-	const key = await generateJWK(HS256);
+	const key = await generateJWK(HS256, { extractable: true, usages: ['sign', 'verify'] });
 	const skip = ! (key instanceof CryptoKey);
 
 	for (const algo of algos) {
@@ -41,6 +45,21 @@ describe('Test JWK/key functions', { concurrency: true }, async () => {
 		assert.ok(file instanceof File, '`createJWKFile` should return a `File`');
 		assert.ok(imported instanceof CryptoKey, 'Importing from file should return a `CryptoKey`');
 		assert.ok(fetched instanceof CryptoKey, '`fetchJWK` should return a `CryptoKey`');
+		assert.deepStrictEqual(imported.algorithm, key.algorithm, 'Imported key should have the same algorithm as the original');
+		assert.deepStrictEqual(imported.usages, key.usages, 'Imported key should have the same usages as the original');
+	});
+
+	test('Import and export RFC7517 JWK', { signal }, async () => {
+		const { publicKey } = await generateJWK(ES256, { extractable: true });
+		const exported = await exportAsRFC7517JWK(publicKey);
+		const imported = await importRFC7517JWK(exported);
+
+		assert.ok(imported instanceof CryptoKey, 'Imported key should be a `CryptoKey`');
+		assert.ok(['kty', 'kid', 'alg', 'use', 'key_ops', 'use', 'crv', 'x', 'y']
+			.every(prop => prop in exported), 'Exported JWK should have expected properties');
+
+		assert.deepStrictEqual(imported.algorithm, publicKey.algorithm, 'Imported key should have the same algorithm as the original');
+		assert.deepStrictEqual(imported.usages, publicKey.usages, 'Imported key should have the same usages as the original');
 	});
 
 	test('Key generated is a `CryptoKey`.', { signal }, () => assert.ok(key instanceof CryptoKey, 'Generated key should be a `CryptoKey'));
@@ -65,5 +84,15 @@ describe('Test JWK/key functions', { concurrency: true }, async () => {
 		const exported = await exportJWK(key);
 		const imported = await importJWK(exported);
 		assert.ok(imported instanceof CryptoKey, 'Imported key should be a crypto key.');
+		assert.deepStrictEqual(imported.algorithm, key.algorithm, 'Imported key should have the same algorithm as the original');
+		assert.deepStrictEqual(imported.usages, key.usages, 'Imported key should have the same usages as the original');
+	});
+
+	test('Import key from base64 string', { signal, skip }, async () => {
+		const encoded = await base64EncodeJWK(key);
+		const imported = await importJWKFromBase64(encoded);
+		assert.ok(imported instanceof CryptoKey, 'Imported key should be a `CryptoKey`');
+		assert.deepStrictEqual(imported.algorithm, key.algorithm, 'Imported key should have the same algorithm as the original');
+		assert.deepStrictEqual(imported.usages, key.usages, 'Imported key should have the same usages as the original');
 	});
 });

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.0.19]
+
+### Added
+- Add support for RFC7517 imports and exports of keys
+- Add conversion of `Date` objects to Unix timestamps for certain claims
+
 ## [v1.0.18] - 2024-12-17
 
 ### Added

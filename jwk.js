@@ -1,4 +1,4 @@
-import { MIME_TYPE, DEFAULT_ALGO, ALGOS, HS256, FETCH_INIT, SUPPORTED_ALGOS } from './consts.js';
+import { MIME_TYPE, DEFAULT_ALGO, ALGOS, HS256, FETCH_INIT, SUPPORTED_ALGOS, SIGN_USAGE, SHA256 } from './consts.js';
 import { findKeyAlgo } from './utils.js';
 
 /**
@@ -20,15 +20,12 @@ export async function generateJWKPair(algo = DEFAULT_ALGO) {
  * @param {string} [algo='ES256'] - The algorithm to use for the JWK pair. Defaults to `"ES256"`.
  * @param {object} [options] - Optional options for the token creation.
  * @param {boolean} [extractable=true] - Whether or not the key may be extracted/exported.
- * @returns {Promise<CryptoKeyPair | CryptoKey>} A promise that resolves to the generated JWK pair.
+ * @param {KeyUsage[]} [usages=['sign', 'verify']] - The allowed usages for the key.
+ * @returns {Promise<CryptoKeyPair|CryptoKey>} A promise that resolves to the generated JWK pair.
  * @throws {Error} If there's an error generating the JWK pair.
  */
-export async function generateJWK(algo = DEFAULT_ALGO, { extractable = true } = {}) {
-	return await crypto.subtle.generateKey(
-		ALGOS[algo],
-		extractable,
-		['sign', 'verify']
-	);
+export async function generateJWK(algo = DEFAULT_ALGO, { extractable = true, usages = SIGN_USAGE } = {}) {
+	return await crypto.subtle.generateKey(ALGOS[algo], extractable, usages);
 }
 
 /**
@@ -65,17 +62,61 @@ export async function fetchWellKnownKey(origin, fetchInit = FETCH_INIT, extracta
 	if (keys.length !== 0) {
 		const key = keys.find(key => key.use === 'sig' && SUPPORTED_ALGOS.includes(key.alg));
 
-		if (typeof key === 'object') {
-			return await crypto.subtle.importKey(
-				'jwk',
-				key,
-				ALGOS[key.alg],
-				extractable,
-				['verify'],
-			).catch(() => null);
-		} else {
-			return null;
-		}
+		return await importRFC7517JWK(key, extractable);
+	} else {
+		return null;
+	}
+}
+
+/**
+ * Imports a JSON Web Key (JWK) in the RFC7517 format.
+ *
+ * @param {object} keyObj
+ * @param {string} keyObj.kty - The key type (e.g., "RSA", "EC").
+ * @param {string} keyObj.alg - The intended algorithm for the key.
+ * @param {string} keyObj.use - The intended use of the key (e.g., "sig", "enc").
+ * @param {KeyUsage[]} [keyObj.key_ops] Optional array of key usages, defaulting to `['verify'].
+ * @param {boolean} [extractable=false] Whether the key can be extracted.
+ * @returns {Promise<CryptoKey|null>} The imported CryptoKey or null if there were any errors.
+ */
+export async function importRFC7517JWK(keyObj, extractable = false) {
+	if (typeof keyObj === 'object' && typeof keyObj?.alg === 'string') {
+		return await crypto.subtle.importKey(
+			'jwk',
+			keyObj,
+			ALGOS[keyObj.alg],
+			extractable,
+			Array.isArray(keyObj.key_ops) ? keyObj.key_ops : ['verify'],
+		).catch(() => null);
+	} else {
+		return null;
+	}
+}
+
+/**
+ * Exports a CryptoKey or CryptoKeyPair as a JSON Web Key (JWK) in the RFC7517 format.
+ *
+ * @param {CryptoKey|CryptoKeyPair} key
+ * @param {object} options Export options.
+ * @param {HashAlgorithmIdentifier} [options.hash='SHA-256'] The hash algorithm to use for the key ID.
+ * @returns {Promise<object|null>} The exported JWK or null if there were any errors.
+ */
+export async function exportAsRFC7517JWK(key, { hash = SHA256 } = {}) {
+	if (key instanceof CryptoKey) {
+		const data = await crypto.subtle.exportKey('jwk', key);
+		const { kty, key_ops, ...rest } = data;
+
+		// This should convert a JWK to RFC7517 format, which is different from the JWK format
+		return {
+			kty: kty,
+			alg: findKeyAlgo(data)[0],
+			kid: new Uint8Array(await crypto.subtle.digest(hash, new TextEncoder().encode(JSON.stringify(data)))).toHex(),
+			use: key_ops.includes('verify') ? 'sig' : 'enc',
+			key_ops,
+			...rest
+		};
+	} else if (typeof key === 'object' && key?.publicKey instanceof CryptoKey) {
+		return await exportAsRFC7517JWK(key.publicKey, { hash });
 	} else {
 		return null;
 	}
@@ -84,8 +125,8 @@ export async function fetchWellKnownKey(origin, fetchInit = FETCH_INIT, extracta
 /**
  * Imports a JSON Web Key (JWK) into a CryptoKey object.
  *
- * @param {object | string} key - The JWK data to import or its JSON.
- * @returns {Promise<CryptoKey | Error>} A promise that resolves to the imported CryptoKey object or any Error.
+ * @param {object|string} key - The JWK data to import or its JSON.
+ * @returns {Promise<CryptoKey|Error>} A promise that resolves to the imported CryptoKey object or any Error.
  */
 export async function importJWK(key) {
 	try {
@@ -95,13 +136,7 @@ export async function importJWK(key) {
 			const algo = findKeyAlgo(key)[1];
 
 			if (typeof algo?.name === 'string') {
-				return await crypto.subtle.importKey(
-					'jwk',
-					key,
-					algo,
-					key.ext,
-					key.key_ops
-				);
+				return await crypto.subtle.importKey('jwk', key, algo, key.ext, key.key_ops);
 			} else {
 				return new TypeError('Invalid or unsupported algorithm.');
 			}
@@ -114,11 +149,11 @@ export async function importJWK(key) {
 /**
  * Imports raw data or a string into a CryptoKey object.
  *
- * @param {Uint8Array | string} raw - The raw data or string to import.
+ * @param {Uint8Array|string} raw - The raw data or string to import.
  * @param {string} [algorithm='HS256'] - The desired algorithm for the imported key.
  * @param {boolean} [extractable=true] - Whether the imported key can be extracted.
  * @param {KeyUsage[]} [usages=['sign', 'verify']] - The allowed usages for the imported key.
- * @returns {Promise<CryptoKey | Error>} A promise that resolves to the imported CryptoKey object or any error that occurs.
+ * @returns {Promise<CryptoKey|Error>} A promise that resolves to the imported CryptoKey object or any error that occurs.
  */
 export async function importRawKey(raw, { algorithm = HS256, extractable = true, usages = ['sign', 'verify'] } = {}) {
 	try {
@@ -135,7 +170,7 @@ export async function importRawKey(raw, { algorithm = HS256, extractable = true,
 /**
  *
  * @param {CryptoKey} key - The key to export.
- * @returns {object | Error} The exported key or any error in exporing it.
+ * @returns {object|Error} The exported key or any error in exporing it.
  */
 export async function exportJWK(key) {
 	if (! (key instanceof CryptoKey)) {
@@ -190,7 +225,7 @@ export async function createJWKBlob(key) {
 /**
  * Loads a JSON Web Key (JWK) from a Blob object.
  *
- * @param {Blob | File} blob - The Blob (including File) object containing the JWK data.
+ * @param {Blob|File} blob - The Blob (including File) object containing the JWK data.
  * @returns {Promise<CryptoKey>} A promise that resolves to the imported JWK.
  * @throws {TypeError} If the provided object is not a Blob object or the file has an incorrect MIME type.
  * @throws {Error} If there's an error parsing the JWK data or importing the key.
@@ -210,7 +245,7 @@ export async function loadJWKFromBlob(blob) {
  * Imports a JSON Web Key (JWK) from a base64-encoded string.
  *
  * @param {string} keyData - The base64-encoded JWK data.
- * @returns {Promise<CryptoKey | Error>} A promise that resolves to the imported JWK or any Error.
+ * @returns {Promise<CryptoKey|Error>} A promise that resolves to the imported JWK or any Error.
  */
 export async function importJWKFromBase64(keyData) {
 	try {
@@ -229,16 +264,16 @@ export async function importJWKFromBase64(keyData) {
 /**
  * Fetches a JSON Web Key (JWK) from a specified URL.
  *
- * @param {string | URL} url - The URL of the JWK resource.
+ * @param {string|URL} url - The URL of the JWK resource.
  * @param {RequestInit} [options] - Optional options for the fetch request.
- * @param {Headers | object} [options.headers] - The headers to include in the fetch request. Defaults to a `Headers` object with `Accept: application/jwk+json`.
+ * @param {Headers|object} [options.headers] - The headers to include in the fetch request. Defaults to a `Headers` object with `Accept: application/jwk+json`.
  * @param {string} [options.method='GET'] - The HTTP method to use for the fetch request. Defaults to 'GET'.
  * @param {string} [options.referrerPolicy='no-referrer'] - The referrer policy to use for the fetch request. Defaults to 'no-referrer'.
  * @param {string} [options.redirect='error'] - The redirect policy to use for the fetch request. Defaults to 'error'.
  * @param {string} [options.crossOrigin='anonymous'] - The cross-origin isolation mode to use for the fetch request. Defaults to 'anonymous'.
  * @param {string} [options.integrity] - The integrity check to perform on the response.
  * @param {AbortSignal} [options.signal] - An AbortSignal object to abort the fetch request.
- * @returns {Promise<CryptoKey | Error>} A promise that resolves to the imported JWK if successful, or Error if the fetch fails or the response is not a valid JWK.
+ * @returns {Promise<CryptoKey|Error>} A promise that resolves to the imported JWK if successful, or Error if the fetch fails or the response is not a valid JWK.
  */
 export async function fetchJWK(url, {
 	headers = new Headers({ Accept: MIME_TYPE }),
