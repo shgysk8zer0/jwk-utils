@@ -1,7 +1,7 @@
 
 import { ALPHABET as alphabet, ALGOS, AUTH, LEEWAY } from './consts.js';
-import { fetchWellKnownKey } from './jwk.js';
-import { findKeyAlgo, getKeyId } from './utils.js';
+import { fetchWellKnownKey, getKid } from './jwk.js';
+import { findKeyAlgo } from './utils.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8');
@@ -119,7 +119,7 @@ export async function verifySignature({ header, signature, data }, key) {
  * @throws {TypeError} If the key is not a CryptoKey/CryptoKeyPair or if it lacks "sign" in usages.
  * @throws {Error} If there's an error generating the JWT.
  */
-export async function createJWT(payload, key) {
+export async function createJWT(payload, key, kid) {
 	const signingKey = getSigningKey(key);
 
 	if (signingKey instanceof Error) {
@@ -131,13 +131,21 @@ export async function createJWT(payload, key) {
 			throw new TypeError('Key usages do not include "sign".');
 		} else if (typeof name === 'string') {
 			// Convert any dates to seconds for JWT
-			['iat', 'exp', 'nbf'].forEach(claim => {
+			['iat', 'exp', 'nbf', 'toe'].forEach(claim => {
 				if (payload[claim] instanceof Date) {
 					payload[claim] = _dateToSeconds(payload[claim]);
 				}
 			});
 
-			const encodedHeader = encoder.encode(JSON.stringify({ alg: name, kid: await getKeyId(key), typ: 'JWT' })).toBase64({ alphabet }).replaceAll('=', '');
+			if (typeof kid !== 'string') {
+				kid = key instanceof CryptoKey
+					? await getKid(key)
+					: await getKid(key.publicKey);
+			} else if (kid instanceof CryptoKey && kid.extractable) {
+				kid = await getKid(kid);
+			}
+
+			const encodedHeader = encoder.encode(JSON.stringify({ alg: name, kid, typ: 'JWT' })).toBase64({ alphabet }).replaceAll('=', '');
 			const encodedPayload = encoder.encode(JSON.stringify(payload)).toBase64({ alphabet }).replaceAll('=', '');
 			const signature = await crypto.subtle.sign(
 				{ ...algo, ...key.algorithm },

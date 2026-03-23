@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.1.1] - 2026-03-23
+
+### Deprecated
+- Deprecate `getKeyId()` in favor of `getKid()` and update `kid` in JWTs
+
+### Added
+- Add function to generate `kid`s
+
 ## [v1.1.0] - 2026-03-23
 
 ### Changed
