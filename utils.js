@@ -10,8 +10,10 @@ export const isOrigin = str => typeof str === 'string' && getOrigin(str) === str
  * @param {CryptoKey} key - The JWK to calculate the key ID for.
  * @returns {Promise<string | TypeError>} A promise that resolves to the calculated key ID or a TypeError is key cannot be extracted.
  * @throws {Error} If there's an error exporting or hashing the JWK.
+ * @deprecated
  */
 export async function getKeyId(key) {
+	console.warn('`getKeyId()` is deprecated. Please use `getKid()` instead.');
 	if (! (key instanceof CryptoKey)) {
 		throw new TypeError('Cannot get hash of a non-CryptoKey.');
 	} else if (! key.extractable) {

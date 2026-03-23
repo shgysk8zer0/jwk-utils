@@ -1,5 +1,5 @@
 import { MIME_TYPE, DEFAULT_ALGO, ALGOS, HS256, FETCH_INIT, SUPPORTED_ALGOS, SIGN_USAGE, SHA256 } from './consts.js';
-import { findKeyAlgo, getKeyId } from './utils.js';
+import { findKeyAlgo } from './utils.js';
 
 /**
  * Generates a new JSON Web Key (JWK) pair with the specified algorithm.
@@ -26,6 +26,37 @@ export async function generateJWKPair(algo = DEFAULT_ALGO) {
  */
 export async function generateJWK(algo = DEFAULT_ALGO, { extractable = true, usages = SIGN_USAGE } = {}) {
 	return await crypto.subtle.generateKey(ALGOS[algo], extractable, usages);
+}
+
+export async function getKid(key) {
+	if (key?.publicKey instanceof CryptoKey) {
+		return await generateJWK(key.publicKey);
+	} else if (! (key instanceof CryptoKey)) {
+		throw new TypeError('Key must be a `CryptoKey`');
+	} else if (! key.extractable) {
+		throw new TypeError('Key must be extractable.');
+	} else {
+		const jwk = await crypto.subtle.exportKey('jwk', key);
+		const keyMembers = {
+			EC:  ['crv', 'kty', 'x', 'y'],
+			RSA: ['e', 'kty', 'n'],
+			OKP: ['crv', 'kty', 'x'],
+			oct: ['k', 'kty'],
+		};
+
+		if (! (jwk.kty in keyMembers)) {
+			throw new Error(`Unsupported key type: ${jwk.kty}`);
+		} else {
+			const fields = keyMembers[jwk.kty];
+
+			// Build in sorted order explicitly — do NOT sort after the fact
+			const payload = JSON.stringify(Object.fromEntries(fields.map(k => [k, jwk[k]])));
+
+			const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+
+			return new Uint8Array(digest).toBase64({ alphabet: 'base64url', omitPadding: true });
+		}
+	}
 }
 
 /**
@@ -116,11 +147,7 @@ export async function exportAsRFC7517JWK(key, { hash = SHA256, kid } = {}) {
 			...rest
 		};
 	} else if (typeof key === 'object' && key?.publicKey instanceof CryptoKey) {
-		if (typeof kid !== 'string' && key.privateKey instanceof CryptoKey) {
-			return await exportAsRFC7517JWK(key.publicKey, { hash, kid: await getKeyId(key.privateKey, { hash }) });
-		} else {
-			return await exportAsRFC7517JWK(key.publicKey, { hash, kid });
-		}
+		return await exportAsRFC7517JWK(key.publicKey, { hash, kid: typeof kid === 'string' ? kid : await getKid(key.publicKey) });
 	} else {
 		return null;
 	}
