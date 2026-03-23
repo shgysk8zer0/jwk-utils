@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.1.2] - 2026-03-23
+
+### Fixed
+- Fixed generating `kid` for `RFC7517` exports
+- Update `@shgysk8zer0/polyfills` with fix for `toBase64()`
+
 ## [v1.1.1] - 2026-03-23
 
 ### Deprecated
