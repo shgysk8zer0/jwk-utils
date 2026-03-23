@@ -174,7 +174,7 @@ export async function importRawKey(raw, { algorithm = HS256, extractable = true,
 /**
  *
  * @param {CryptoKey} key - The key to export.
- * @returns {object|Error} The exported key or any error in exporing it.
+ * @returns {Promise<object|Error>} The exported key or any error in exporing it.
  */
 export async function exportJWK(key) {
 	if (! (key instanceof CryptoKey)) {

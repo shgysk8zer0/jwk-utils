@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.1.0] - 2026-03-23
+
+### Changed
+- Update to node 25.3.0
+- Update npm publishing
+
+### Fixed
+- Fix salt length on `PS384` and `PS512`
+
+### Removed
+- Remove import of `@shgysk8zer0/polyfills`
+
 ## [v1.0.20] - 2024-12-20
 
 ### Fixed

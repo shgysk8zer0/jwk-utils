@@ -6,7 +6,7 @@ import {
 	loadJWKFromBlob, fetchJWK, importJWK, exportJWK, exportAsRFC7517JWK,
 	importRFC7517JWK,
 } from './jwk.js';
-import { createJWT, decodeToken, verifySignature } from './jwt.js';
+import { createJWT, decodeToken, verifyJWT, verifySignature } from './jwt.js';
 import { ES256, HS256 } from './consts.js';
 import { signal } from './signal.test.js';
 import { ALGOS } from './consts.js';
@@ -21,9 +21,13 @@ describe('Test JWK/key functions', { concurrency: true }, async () => {
 	for (const algo of algos) {
 		test(`Generate key/key pair using ${algo}`, { signal }, async () => {
 			const keys = await generateJWK(algo);
+			const jwt = await createJWT({ iat: Math.floor(Date.now() / 1000) }, keys?.privateKey ?? keys);
+			const valid = await verifyJWT(jwt, keys?.publicKey ?? keys);
 
 			if (keys instanceof Error) {
 				assert.fail(key);
+			} else if (valid instanceof Error) {
+				assert.fail(valid);
 			} else if ('publicKey' in keys) {
 				assert.ok(keys.publicKey instanceof CryptoKey, `${algo} key pair should have a public key`);
 				assert.ok(keys.privateKey instanceof CryptoKey,  `${algo} key pair should have a private key`);

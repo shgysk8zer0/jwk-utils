@@ -118,20 +118,19 @@ export const ALGOS = {
 	PS384: {
 		name: 'RSA-PSS',
 		hash: SHA384,
-		saltLength: 32,
+		saltLength: 48,
 		modulusLength: 3072,
 		publicExponent: PUBLIC_EXPONENT,
 	},
 	PS512: {
 		name: 'RSA-PSS',
 		hash: SHA512,
-		saltLength: 32,
+		saltLength: 64,
 		modulusLength: 4096,
 		publicExponent: PUBLIC_EXPONENT,
 	},
 	EdDSA: {
 		name: 'Ed25519',
-		namedCurve: 'Ed25519',
 	},
 };
 
