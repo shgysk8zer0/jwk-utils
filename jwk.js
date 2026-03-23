@@ -141,7 +141,7 @@ export async function exportAsRFC7517JWK(key, { hash = SHA256, kid } = {}) {
 		return {
 			kty: kty,
 			alg: findKeyAlgo(data)[0],
-			kid,
+			kid: typeof kid === 'string' ? kid : await getKid(key),
 			use: key_ops.includes('verify') ? 'sig' : 'enc',
 			key_ops,
 			...rest
