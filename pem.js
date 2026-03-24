@@ -8,6 +8,14 @@ const PEM_PUBLIC_FOOTER = '-----END PUBLIC KEY-----';
 const PUBLIC_KEY_USAGES = ['verify', 'encrypt', 'wrapKey'];
 const PRIVATE_KEY_USAGES = ['sign', 'decrypt', 'unwrapKey', 'deriveKey', 'deriveBits'];
 
+function split(str, len = 64) {
+	let result = '';
+	for (let i = 0; i < str.length; i += len) {
+		result += str.slice(i, i + len) + NL;
+	}
+	return result.trim();
+}
+
 /**
  * Parses a PEM string and returns an object with any public/private key
  *
@@ -75,16 +83,16 @@ export async function exportPEM(key) {
 	if (key instanceof CryptoKey && key.extractable) {
 		switch(key.type) {
 			case 'private':
-				return `${PEM_PRIVATE_HEADER}${NL}${await crypto.subtle.exportKey('pkcs8', key).then(buff => new Uint8Array(buff).toBase64())}${NL}${PEM_PRIVATE_FOOTER}`;
+				return `${PEM_PRIVATE_HEADER}${NL}${(await crypto.subtle.exportKey('pkcs8', key).then(buff => split(new Uint8Array(buff).toBase64())))}${NL}${PEM_PRIVATE_FOOTER}`;
 
 			case 'public':
-				return `${PEM_PUBLIC_HEADER}${NL}${await crypto.subtle.exportKey('spki', key).then(buff => new Uint8Array(buff).toBase64())}${NL}${PEM_PUBLIC_FOOTER}`;
+				return `${PEM_PUBLIC_HEADER}${NL}${await crypto.subtle.exportKey('spki', key).then(buff => split(new Uint8Array(buff).toBase64()))}${NL}${PEM_PUBLIC_FOOTER}`;
 
 			default:
 				throw new TypeError(`Unsupported key type: "${key.type}.`);
 		}
 	} else if (key?.publicKey instanceof CryptoKey && key?.privateKey instanceof CryptoKey) {
-		return await Promise.all([exportPEM(key.publicKey), exportPEM(key.privateKey)]).then(pem => pem.join(NL));
+		return await Promise.all([exportPEM(key.publicKey), exportPEM(key.privateKey)]);
 	} else if (key?.publicKey instanceof CryptoKey) {
 		return exportPEM(key.publicKey);
 	} else if (key?.privateKey instanceof CryptoKey) {
