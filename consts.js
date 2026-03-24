@@ -32,6 +32,12 @@ export const WRAP_USAGE = ['wrapKey', 'unwrapKey'];
 export const DERIVE_USAGE = ['deriveKey', 'deriveBits'];
 export const ENCRYPT_USAGE = ['encrypt', 'decrypt'];
 export const DEFAULT_USAGE = SIGN_USAGE;
+export const PEM_PRIVATE_HEADER = '-----BEGIN PRIVATE KEY-----';
+export const PEM_PRIVATE_FOOTER = '-----END PRIVATE KEY-----';
+export const PEM_PUBLIC_HEADER = '-----BEGIN PUBLIC KEY-----';
+export const PEM_PUBLIC_FOOTER = '-----END PUBLIC KEY-----';
+export const PUBLIC_KEY_USAGES = ['verify', 'encrypt', 'wrapKey'];
+export const PRIVATE_KEY_USAGES = ['sign', 'decrypt', 'unwrapKey', 'deriveKey', 'deriveBits'];
 
 export const PUBLIC_EXPONENT = new Uint8Array([1, 0, 1]); // 65537
 

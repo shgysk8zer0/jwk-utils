@@ -1,12 +1,11 @@
-import { DEFAULT_ALGO, ALGOS } from './consts.js';
+import {
+	DEFAULT_ALGO, ALGOS, ES256, RS256, ES384, ES512, RS384, RS512, EdDSA, PS256, PS384, PS512,
+	PEM_PRIVATE_HEADER, PEM_PRIVATE_FOOTER, PEM_PUBLIC_HEADER, PEM_PUBLIC_FOOTER,
+	PUBLIC_KEY_USAGES, PRIVATE_KEY_USAGES,
+} from './consts.js';
 
 const NL = '\n';
-const PEM_PRIVATE_HEADER = '-----BEGIN PRIVATE KEY-----';
-const PEM_PRIVATE_FOOTER = '-----END PRIVATE KEY-----';
-const PEM_PUBLIC_HEADER = '-----BEGIN PUBLIC KEY-----';
-const PEM_PUBLIC_FOOTER = '-----END PUBLIC KEY-----';
-const PUBLIC_KEY_USAGES = ['verify', 'encrypt', 'wrapKey'];
-const PRIVATE_KEY_USAGES = ['sign', 'decrypt', 'unwrapKey', 'deriveKey', 'deriveBits'];
+const WS = /\s+/g;
 
 function split(str, len = 64) {
 	let result = '';
@@ -23,61 +22,43 @@ function split(str, len = 64) {
  * @param {string} [algorithm="ES256"]
  * @param {boolean} [extractable=true]
  * @param {KeyUsage[]} [keyUsages=["sign", "verify"]]
- * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
+ * @returns {Promise<CryptoKey>}
  */
 export async function importFromPEM(pem, algorithm = DEFAULT_ALGO, extractable = true, keyUsages = ['sign', 'verify']) {
-	let publicKey = null, privateKey = null;
-
 	if (pem.includes(PEM_PRIVATE_HEADER) && pem.includes(PEM_PRIVATE_FOOTER)) {
 		const start = pem.indexOf(PEM_PRIVATE_HEADER);
 		const end = pem.indexOf(PEM_PRIVATE_FOOTER, start);
 
-		privateKey = await crypto.subtle.importKey(
+		return await crypto.subtle.importKey(
 			'pkcs8',
 			Uint8Array.fromBase64(
-				pem.trim().substring(start + PEM_PRIVATE_HEADER.length, end).replace(/\s+/g, '')
+				pem.trim().substring(start + PEM_PRIVATE_HEADER.length, end).replace(WS, '')
 			).buffer,
 			ALGOS[algorithm],
 			extractable,
 			keyUsages.filter(u => PRIVATE_KEY_USAGES.includes(u))
 		);
-	}
-
-	if (pem.includes(PEM_PUBLIC_HEADER) && pem.includes(PEM_PUBLIC_FOOTER)) {
+	} else if (pem.includes(PEM_PUBLIC_HEADER) && pem.includes(PEM_PUBLIC_FOOTER)) {
 		const start = pem.indexOf(PEM_PUBLIC_HEADER);
 		const end = pem.indexOf(PEM_PUBLIC_FOOTER, start);
-		publicKey = await crypto.subtle.importKey(
+
+		return await crypto.subtle.importKey(
 			'spki',
 			Uint8Array.fromBase64(
-				pem.trim().substring(start + PEM_PUBLIC_HEADER.length, end).replace(/\s+/g, '')
+				pem.trim().substring(start + PEM_PUBLIC_HEADER.length, end).replace(WS, '')
 			).buffer,
 			ALGOS[algorithm],
 			extractable,
 			keyUsages.filter(u => PUBLIC_KEY_USAGES.includes(u))
 		);
 	}
-
-	return Object.create(null, {
-		publicKey: {
-			value: publicKey,
-			enumerable: true,
-			writable: false,
-			configurable: false,
-		},
-		privateKey: {
-			value: privateKey,
-			enumerable: true,
-			writable: false,
-			configurable: false,
-		},
-	});
 }
 
 /**
  * Converts a `CryptoKey` or pair into a PEM string
  *
  * @param {CryptoKey|CryptoKeyPair} key
- * @returns {Promise<string>}
+ * @returns {Promise<string|string[]>} The PEM string for a single key or an array for a key pair
  */
 export async function exportPEM(key) {
 	if (key instanceof CryptoKey && key.extractable) {
@@ -98,4 +79,94 @@ export async function exportPEM(key) {
 	} else if (key?.privateKey instanceof CryptoKey) {
 		return exportPEM(key.privateKey);
 	}
+}
+
+/**
+ *
+ * @param {TemplateStringsArray} strings
+ * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
+ */
+export async function pemES256(strings) {
+	return await importFromPEM(String.raw(strings).trim(), ES256);
+}
+
+/**
+ *
+ * @param {TemplateStringsArray} strings
+ * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
+ */
+export async function pemES384(strings) {
+	return await importFromPEM(String.raw(strings).trim(), ES384);
+}
+
+/**
+ *
+ * @param {TemplateStringsArray} strings
+ * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
+ */
+export async function pemES512(strings) {
+	return await importFromPEM(String.raw(strings).trim(), ES512);
+}
+
+/**
+ *
+ * @param {TemplateStringsArray} strings
+ * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
+ */
+export async function pemRS256(strings) {
+	return await importFromPEM(String.raw(strings).trim(), RS256);
+}
+
+/**
+ *
+ * @param {TemplateStringsArray} strings
+ * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
+ */
+export async function pemRS384(strings) {
+	return await importFromPEM(String.raw(strings).trim(), RS384);
+}
+
+/**
+ *
+ * @param {TemplateStringsArray} strings
+ * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
+ */
+export async function pemRS512(strings) {
+	return await importFromPEM(String.raw(strings).trim(), RS512);
+}
+
+/**
+ *
+ * @param {TemplateStringsArray} strings
+ * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
+ */
+export async function pemPS256(strings) {
+	return await importFromPEM(String.raw(strings).trim(), PS256);
+}
+
+/**
+ *
+ * @param {TemplateStringsArray} strings
+ * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
+ */
+export async function pemPS384(strings) {
+	return await importFromPEM(String.raw(strings).trim(), PS384);
+}
+
+/**
+ *
+ * @param {TemplateStringsArray} strings
+ * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
+ */
+export async function pemPS512(strings) {
+	return await importFromPEM(String.raw(strings).trim(), PS512);
+}
+
+/**
+ *
+ * @param {TemplateStringsArray} strings
+ * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
+ */
+export async function pemEdDSA(strings) {
+	return await importFromPEM(String.raw(strings).trim(), EdDSA);
 }

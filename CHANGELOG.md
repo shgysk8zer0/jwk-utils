@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.1.5] - 2026-03-24
+
+### Added
+- Add PEM tagged templates
+
+### Changed
+- `importFromPEM()` now only returns an individual `CryptoKey`
+- Moved various PEM constants to `consts.js`
+
 ### [v1.1.4] - 2026-03-24
 
 ### Fixed
