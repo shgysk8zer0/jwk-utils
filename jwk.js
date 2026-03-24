@@ -1,5 +1,94 @@
-import { MIME_TYPE, DEFAULT_ALGO, ALGOS, HS256, FETCH_INIT, SUPPORTED_ALGOS, SIGN_USAGE, SHA256 } from './consts.js';
+import { MIME_TYPE, DEFAULT_ALGO, ALGOS, HS256, FETCH_INIT, SUPPORTED_ALGOS, SIGN_USAGE } from './consts.js';
 import { findKeyAlgo } from './utils.js';
+
+/**
+ * @typedef {"RSA" | "EC" | "oct" | "OKP"} RFC7517KTY
+ */
+
+/**
+ * @typedef {
+ *   | "sign" | "verify"
+ *   | "encrypt" | "decrypt"
+ *   | "wrapKey" | "unwrapKey"
+ *   | "deriveKey" | "deriveBits"
+ * } RFC7517KeyOp
+ */
+
+/**
+ * @typedef {"sig" | "enc"} RFC7517Use
+ */
+
+/**
+ * Base (common) JWK fields
+ * @typedef {object} RFC7517JWKBase
+ * @property {RFC7517KTY} kty
+ * @property {RFC7517Use} [use]
+ * @property {RFC7517KeyOp[]} [key_ops]
+ * @property {string} [alg]
+ * @property {string} [kid]
+ * @property {string} [x5u]
+ * @property {string[]} [x5c]
+ * @property {string} [x5t]
+ * @property {string} ["x5t#S256"]
+ */
+
+/**
+ * RSA JWK
+ * @typedef {RFC7517JWKBase & {
+ *   kty: "RSA",
+ *   n: string,
+ *   e: string,
+ *   d?: string,
+ *   p?: string,
+ *   q?: string,
+ *   dp?: string,
+ *   dq?: string,
+ *   qi?: string,
+ *   oth?: {
+ *     r: string,
+ *     d: string,
+ *     t: string
+ *   }[]
+ * }} RFC7517RSAJWK
+ */
+
+/**
+ * EC JWK (Weierstrass curves)
+ * @typedef {"P-256" | "P-384" | "P-521" | "secp256k1"} RFC7518Curve
+ *
+ * @typedef {RFC7517JWKBase & {
+ *   kty: "EC",
+ *   crv: RFC7518Curve,
+ *   x: string,
+ *   y: string,
+ *   d?: string
+ * }} RFC7517ECJWK
+ */
+
+/**
+ * Symmetric (octet sequence) JWK
+ * @typedef {RFC7517JWKBase & {
+ *   kty: "oct",
+ *   k: string
+ * }} RFC7517OctJWK
+ */
+
+/**
+ * OKP JWK (RFC 8037)
+ * @typedef {"Ed25519" | "Ed448" | "X25519" | "X448"} RFC8037Curve
+ *
+ * @typedef {RFC7517JWKBase & {
+ *   kty: "OKP",
+ *   crv: RFC8037Curve,
+ *   x: string,
+ *   d?: string
+ * }} RFC7517OKPJWK
+ */
+
+/**
+ * Full JWK union (RFC 7517 + RFC 8037)
+ * @typedef { RFC7517RSAJWK | RFC7517ECJWK | RFC7517OctJWK | RFC7517OKPJWK } RFC7517JWK
+ */
 
 /**
  * Generates a new JSON Web Key (JWK) pair with the specified algorithm.
@@ -28,6 +117,11 @@ export async function generateJWK(algo = DEFAULT_ALGO, { extractable = true, usa
 	return await crypto.subtle.generateKey(ALGOS[algo], extractable, usages);
 }
 
+/**
+ *
+ * @param {CryptoKey|CryptoKeyPair} key
+ * @returns {Promise<string>}
+ */
 export async function getKid(key) {
 	if (key?.publicKey instanceof CryptoKey) {
 		return await generateJWK(key.publicKey);
@@ -64,7 +158,7 @@ export async function getKid(key) {
  *
  * @param {string} origin The origin to fetch the JWKS from (e.g., 'https://example.com').
  * @param {RequestInit} [fetchInit] Optional fetch initialization options.
- * @returns {Promise<object[]>} An array of key objects, or an empty array if an error occurs or no keys are found.
+ * @returns {Promise<RFC7517JWK[]>} An array of key objects, or an empty array if an error occurs or no keys are found.
  */
 export async function fetchWellKnownKeys(origin, fetchInit = FETCH_INIT) {
 	const url = new URL('/.well-known/jwks.json', origin);
@@ -102,22 +196,18 @@ export async function fetchWellKnownKey(origin, fetchInit = FETCH_INIT, extracta
 /**
  * Imports a JSON Web Key (JWK) in the RFC7517 format.
  *
- * @param {object} keyObj
- * @param {string} keyObj.kty - The key type (e.g., "RSA", "EC").
- * @param {string} keyObj.alg - The intended algorithm for the key.
- * @param {string} keyObj.use - The intended use of the key (e.g., "sig", "enc").
- * @param {KeyUsage[]} [keyObj.key_ops] Optional array of key usages, defaulting to `['verify'].
+ * @param {RFC7517JWK} keyObj
  * @param {boolean} [extractable=false] Whether the key can be extracted.
  * @returns {Promise<CryptoKey|null>} The imported CryptoKey or null if there were any errors.
  */
 export async function importRFC7517JWK(keyObj, extractable = false) {
-	if (typeof keyObj === 'object' && typeof keyObj?.alg === 'string') {
+	if (typeof keyObj?.alg === 'string') {
 		return await crypto.subtle.importKey(
 			'jwk',
 			keyObj,
 			ALGOS[keyObj.alg],
 			extractable,
-			Array.isArray(keyObj.key_ops) ? keyObj.key_ops : ['verify'],
+			Array.isArray(keyObj.key_ops) ? keyObj.key_ops : keyObj.use === 'sig' ? ['verify'] : ['encrypt'],
 		).catch(() => null);
 	} else {
 		return null;
@@ -128,29 +218,40 @@ export async function importRFC7517JWK(keyObj, extractable = false) {
  * Exports a CryptoKey or CryptoKeyPair as a JSON Web Key (JWK) in the RFC7517 format.
  *
  * @param {CryptoKey|CryptoKeyPair} key
- * @param {object} options Export options.
- * @param {HashAlgorithmIdentifier} [options.hash='SHA-256'] The hash algorithm to use for the key ID.
- * @returns {Promise<object|null>} The exported JWK or null if there were any errors.
+ * @param {object} [options] Export options.
+ * @param {string} [options.kid] Optional ID for the key, which will be generated if omitted.
+ * @returns {Promise<RFC7517JWK|null>} The exported JWK or null if there were any errors.
  */
-export async function exportAsRFC7517JWK(key, { hash = SHA256, kid } = {}) {
-	if (key instanceof CryptoKey) {
+export async function exportAsRFC7517JWK(key, { kid } = {}) {
+	if (key?.publicKey instanceof CryptoKey) {
+		return await exportAsRFC7517JWK(key.publicKey, { kid: typeof kid === 'string' ? kid : await getKid(key.publicKey) });
+	} else if (key instanceof CryptoKey && key.extractable) {
 		const data = await crypto.subtle.exportKey('jwk', key);
 		const { kty, key_ops, ...rest } = data;
+		// Remove unnecessary stuff
+		delete rest.ext;
 
 		// This should convert a JWK to RFC7517 format, which is different from the JWK format
 		return {
-			kty: kty,
+			kty,
 			alg: findKeyAlgo(data)[0],
 			kid: typeof kid === 'string' ? kid : await getKid(key),
-			use: key_ops.includes('verify') ? 'sig' : 'enc',
+			use: key_ops?.includes('verify') || key_ops?.includes('sign') ? 'sig' : 'enc',
 			key_ops,
 			...rest
 		};
-	} else if (typeof key === 'object' && key?.publicKey instanceof CryptoKey) {
-		return await exportAsRFC7517JWK(key.publicKey, { hash, kid: typeof kid === 'string' ? kid : await getKid(key.publicKey) });
 	} else {
 		return null;
 	}
+}
+
+/**
+ *
+ * @param  {...CryptoKey} keys
+ * @returns {Promise<{keys: JsonWebKeyRFC7517[]}>}
+ */
+export async function exportAsRFC7517JWKSet(...keys) {
+	return { keys: await Promise.all(keys.map(key => exportAsRFC7517JWK(key))) };
 }
 
 /**
