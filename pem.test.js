@@ -15,7 +15,7 @@ describe('Test PEM tagged templates', async () => {
 	7QIDAQAB
 	-----END PUBLIC KEY-----`;
 
-	const privateKey = await pemRS256`
+	const privateKey = await pemRS256(`
 	-----BEGIN PRIVATE KEY-----
 	MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCvJI62nBRSJc4U
 	jX0GGCh+RFX9adlJPobvcVZe7ekOk4vy7GFVwA9Epmhq5Y7S6+KfpRVhIdYYXBIo
@@ -43,7 +43,7 @@ describe('Test PEM tagged templates', async () => {
 	s5nReGuOtOUHmBKCAYGQ74WzEokrLzzn93b02uIfw6kFL+aCaJHRLTYoE5PuN5kS
 	xeoNQxOYbRSVQGw86aDudmZqDkDHPp4G0XZ5/BtBlyvBQ4cgwMH13eY4wQGggRQM
 	MmODDRzjD0e/A+/lPOCoUGQ=
-	-----END PRIVATE KEY-----`;
+	-----END PRIVATE KEY-----`);
 
 	test('Verify public key', () => {
 		assert.ok(publicKey instanceof CryptoKey, '`publicKey` should be a `CryptoKey`.');

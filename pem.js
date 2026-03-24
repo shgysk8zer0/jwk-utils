@@ -87,7 +87,7 @@ export async function exportPEM(key) {
  * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
  */
 export async function pemES256(strings) {
-	return await importFromPEM(String.raw(strings).trim(), ES256);
+	return await importFromPEM(typeof strings === 'string' ? strings.trim() : String.raw(strings).trim(), ES256);
 }
 
 /**
@@ -96,7 +96,7 @@ export async function pemES256(strings) {
  * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
  */
 export async function pemES384(strings) {
-	return await importFromPEM(String.raw(strings).trim(), ES384);
+	return await importFromPEM(typeof strings === 'string' ? strings.trim() : String.raw(strings).trim(), ES384);
 }
 
 /**
@@ -105,7 +105,7 @@ export async function pemES384(strings) {
  * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
  */
 export async function pemES512(strings) {
-	return await importFromPEM(String.raw(strings).trim(), ES512);
+	return await importFromPEM(typeof strings === 'string' ? strings.trim() : String.raw(strings).trim(), ES512);
 }
 
 /**
@@ -114,7 +114,7 @@ export async function pemES512(strings) {
  * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
  */
 export async function pemRS256(strings) {
-	return await importFromPEM(String.raw(strings).trim(), RS256);
+	return await importFromPEM(typeof strings === 'string' ? strings.trim() : String.raw(strings).trim(), RS256);
 }
 
 /**
@@ -123,7 +123,7 @@ export async function pemRS256(strings) {
  * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
  */
 export async function pemRS384(strings) {
-	return await importFromPEM(String.raw(strings).trim(), RS384);
+	return await importFromPEM(typeof strings === 'string' ? strings.trim() : String.raw(strings).trim(), RS384);
 }
 
 /**
@@ -132,7 +132,7 @@ export async function pemRS384(strings) {
  * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
  */
 export async function pemRS512(strings) {
-	return await importFromPEM(String.raw(strings).trim(), RS512);
+	return await importFromPEM(typeof strings === 'string' ? strings.trim() : String.raw(strings).trim(), RS512);
 }
 
 /**
@@ -141,7 +141,7 @@ export async function pemRS512(strings) {
  * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
  */
 export async function pemPS256(strings) {
-	return await importFromPEM(String.raw(strings).trim(), PS256);
+	return await importFromPEM(typeof strings === 'string' ? strings.trim() : String.raw(strings).trim(), PS256);
 }
 
 /**
@@ -150,7 +150,7 @@ export async function pemPS256(strings) {
  * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
  */
 export async function pemPS384(strings) {
-	return await importFromPEM(String.raw(strings).trim(), PS384);
+	return await importFromPEM(typeof strings === 'string' ? strings.trim() : String.raw(strings).trim(), PS384);
 }
 
 /**
@@ -159,7 +159,7 @@ export async function pemPS384(strings) {
  * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
  */
 export async function pemPS512(strings) {
-	return await importFromPEM(String.raw(strings).trim(), PS512);
+	return await importFromPEM(typeof strings === 'string' ? strings.trim() : String.raw(strings).trim(), PS512);
 }
 
 /**
@@ -168,5 +168,5 @@ export async function pemPS512(strings) {
  * @returns {Promise<Readonly<{publicKey: CryptoKey|null, privateKey: CryptoKey|null}>>}
  */
 export async function pemEdDSA(strings) {
-	return await importFromPEM(String.raw(strings).trim(), EdDSA);
+	return await importFromPEM(typeof strings === 'string' ? strings.trim() : String.raw(strings).trim(), EdDSA);
 }
