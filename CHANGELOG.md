@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### [v1.1.4] - 2026-03-24
+
+### Fixed
+- Fix PEM encoding length (64 width)
+
 ## [v1.1.3] - 2026-03-24
 
 ### Added
