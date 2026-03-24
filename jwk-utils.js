@@ -5,3 +5,4 @@ export * from './jwk.js';
 export * from './jwt.js';
 export * from './origin-tokens.js';
 export * from './utils.js';
+export * from './pem.js';

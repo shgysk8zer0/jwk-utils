@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.1.3] - 2026-03-24
+
+### Added
+- Add module/functions for importing/exporting PEM keys
+
+### Changed
+- Improve usability of RFC7517 key usages, including helper to generate `jwks.json`
+
 ## [v1.1.2] - 2026-03-23
 
 ### Fixed
